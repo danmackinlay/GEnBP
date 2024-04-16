@@ -1,0 +1,43 @@
+# secrets
+.env
+
+# intermediates
+_logs
+models
+data/
+debug/
+log
+venv*
+.vscode/
+
+# tripple underscore for plz ignore
+___*
+
+# python nonsense
+virtual-env/*
+*.egg-info
+*.pyc
+.git
+*~
+*.aux
+*.log
+PKG-INFO
+*.pid
+.doit.*
+.ipynb_checkpoints
+.directory
+
+#R
+.Rproj*
+.Rhistory
+
+#OS
+.DS_Store
+
+sandbox.ipynb
+.VSCodeCounter/
+bayesianize
+.vscode
+
+/.luarc.json
+presentation.html
