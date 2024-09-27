@@ -156,8 +156,8 @@ titles = [
 # We create several axes  to reuse to plot both experiments for time, memory, MSE and likelihood.
 from tueplots import bundles, figsizes
 n_plots = len(y_keys)
-plt.rcParams.update(bundles.icml2024())
-plt.rcParams.update(figsizes.icml2024_half(nrows=n_plots, ncols=1))
+plt.rcParams.update(bundles.icmlr2025())
+plt.rcParams.update(figsizes.icmlr2025(nrows=n_plots, ncols=1))
 plt.rcParams['text.latex.preamble'] = plt.rcParams['text.latex.preamble'] + r'\usepackage{mathrsfs}'
 
 

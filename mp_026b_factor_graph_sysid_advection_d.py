@@ -120,10 +120,15 @@ titles = [
 # We create several axes  to reuse to plot both experiments for time, memory, MSE and likelihood.
 from tueplots import bundles, figsizes
 n_plots = len(y_keys)
-plt.rcParams.update(bundles.icml2024())
-plt.rcParams.update(figsizes.icml2024_half(nrows=n_plots, ncols=1))
-
-fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharex=True)
+mode="row"
+plt.rcParams.update(bundles.icmlr2025())
+plt.rcParams['text.latex.preamble'] = plt.rcParams['text.latex.preamble'] + r'\usepackage{mathrsfs}'
+if mode == "col":
+    plt.rcParams.update(figsizes.icmlr2025(nrows=n_plots, ncols=1))
+    fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharex=True)
+else:
+    plt.rcParams.update(figsizes.icmlr2025(ncols=n_plots, nrows=1, height_to_width_ratio=1.0))
+    fig, axs = plt.subplots(ncols=n_plots, nrows=1)
 
 for i, ax in enumerate(axs):
     y_key = y_keys[i]
@@ -156,11 +161,29 @@ for i, ax in enumerate(axs):
     #         facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.5')
     #     )
 
-    # ax.text(
-    #     0.95, 0.95, title, transform=ax.transAxes, fontsize=10, va='top', ha='right',
-    #     bbox=dict(
-    #         facecolor='white', alpha=0.7,
-    #         edgecolor='none', boxstyle='round,pad=0.5'))
+        ax.set_title(title + " " + arrow, pad=15)
+
+
+    if (i == len(axs) - 1) or mode == "row":
+        ax.set_xlabel(r"$D_\mathscr{Q}$")
+    if mode == "row":
+        ax.text(-0.0, -0.2, f"{chr(97+i)})", transform=ax.transAxes, ha='left', va='top')
+
+    if y_key in (
+            "time",
+            # "q_mse"
+            ):
+        ax.set_yscale('log')
+        # ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: '{:.0e}'.format(y)))
+        ax.yaxis.set_major_formatter(
+            mpl.ticker.LogFormatterSciNotation(labelOnlyBase=True))
+        # ax.ticklabel_format(
+        #     style='scientific',
+        #     axis='y',
+        #     scilimits=(0,0)
+        # )
+    else:
+        ax.ticklabel_format(style='scientific', axis='y', scilimits=(-1,1))
 
 # plt.tight_layout()
 # save figure as PDF in FIG_DIR

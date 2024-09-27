@@ -7,8 +7,13 @@ sanity check the transport problem works ok
 %run mp_026_factor_graph_sysid_advection_wrapped.py
 import matplotlib.pyplot as plt
 from tueplots import bundles, figsizes
-plt.rcParams.update(bundles.icml2024())
-plt.rcParams.update(figsizes.icml2024_half())
+# plt.rcParams.update(bundles.icmlr2025())
+# plt.rcParams.update(figsizes.icmlr2025())
+
+method = "genbp"
+# method = "gabp"
+# method = "laplace"
+# method = "global_loglik"  #??
 
 #%% sanity check
 base_kwargs = dict(

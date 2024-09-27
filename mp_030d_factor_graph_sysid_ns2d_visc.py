@@ -164,14 +164,13 @@ from tueplots import bundles, figsizes
 n_plots = len(y_keys)
 mode = "row"
 
-plt.rcParams.update(bundles.icml2024())
-plt.rcParams.update(bundles.icml2024())
+plt.rcParams.update(bundles.icmlr2025())
 plt.rcParams['text.latex.preamble'] = plt.rcParams['text.latex.preamble'] + r'\usepackage{mathrsfs}'
 if mode == "col":
-    plt.rcParams.update(figsizes.icml2024_half(nrows=n_plots, ncols=1))
+    plt.rcParams.update(figsizes.icmlr2025(nrows=n_plots, ncols=1))
     fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharex=True)
 else:
-    plt.rcParams.update(figsizes.icml2024_full(ncols=n_plots, nrows=1))
+    plt.rcParams.update(figsizes.icmlr2025(ncols=n_plots, nrows=1, height_to_width_ratio=1.0))
     fig, axs = plt.subplots(ncols=n_plots, nrows=1)
 
 

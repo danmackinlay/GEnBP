@@ -178,8 +178,8 @@ print(f"GBP_BEST_LOGLIK = {pformat(gbp_best_loglik)}\nat\n{pformat(gbp_best_logl
 
 import matplotlib.pyplot as plt
 from tueplots import bundles, figsizes
-plt.rcParams.update(bundles.icml2024())
-plt.rcParams.update(figsizes.icml2024_half())
+plt.rcParams.update(bundles.icmlr2025())
+plt.rcParams.update(figsizes.icmlr2025())
 mses = np.array([r['q_mse'] for r in genbp_successful_results])
 logliks =  np.array([r['q_loglik'] for r in genbp_successful_results])
 # filter out loglik outliers

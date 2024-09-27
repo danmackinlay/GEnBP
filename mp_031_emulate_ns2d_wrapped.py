@@ -16,6 +16,7 @@ Q----->X1---->X1
 
 where the factors are high dimensional.
 The target is Q, X0 is known.
+Q parameterises a neural network that generates X1 from X0.
 """
 # %load_ext autoreload
 # %autoreload 2
@@ -36,6 +37,8 @@ import numpy as np
 import submitit
 import os
 from dotenv import load_dotenv
+
+from neuralop.models import FNO, TFNO
 
 # from tueplots import bundles
 # plt.rcParams.update(bundles.icmlr2025())
