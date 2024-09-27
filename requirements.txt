@@ -19,4 +19,6 @@ memory-profiler>=0.61.0
 tensorboard~=2.12.0
 tqdm~=4.65.0
 tueplots~=0.0.16
-wandb~=0.17.5 #annoying unused, undeclared dep from neuraloperator
+# annoying unused, undeclared dependencies  from neuraloperator
+wandb~=0.17.5
+torch-harmonics~=0.7.1
