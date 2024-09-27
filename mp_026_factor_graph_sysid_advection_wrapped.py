@@ -51,7 +51,7 @@ load_dotenv()
 # Intermediate results we do not wish to vesion
 LOG_DIR = os.getenv("LOG_DIR", "_logs")
 # Outputs we wish to keep
-OUTPUT_DIR = os.getenv("OUTPUT_DIR", "output")
+OUTPUT_DIR = os.getenv("OUTPUT_DIR", "outputs")
 # Figures we wish to keep
 FIG_DIR = os.getenv("FIG_DIR", "fig")
 
