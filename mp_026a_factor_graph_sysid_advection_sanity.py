@@ -73,7 +73,6 @@ base_kwargs = dict(
 # )
 # j = executor.submit(run_run, **base_kwargs, seed=1)
 # result = j.result()
-<<<<<<< HEAD
 gbp_lik_result = run_run(**{**base_kwargs, **GBP_BEST_LOGLIK, 'job_name': "fg_advect_gbp_lik_sanity"}, seed=75)
 pprint(gbp_lik_result)
 genbp_lik_result = run_run(**{**base_kwargs, **GENBP_BEST_LOGLIK, 'job_name': "fg_advect_genbp_lik_sanity"}, seed=75)
@@ -82,19 +81,5 @@ gbp_mse_result = run_run(**{**base_kwargs, **GBP_BEST_MSE, 'job_name': "fg_advec
 pprint(gbp_mse_result)
 genbp_mse_result = run_run(**{**base_kwargs, **GENBP_BEST_MSE, 'job_name': "fg_advect_genbp_mse_sanity"}, seed=75)
 pprint(genbp_mse_result)
-=======
-
-# laplace_lik_result = run_run(**{**base_kwargs, **LAPLACE_BEST_LOGLIK, 'job_name': "fg_advect_laplace_lik_sanity"}, seed=75)
-# pprint(laplace_lik_result)
-
-# gbp_lik_result = run_run(**{**base_kwargs, **GBP_BEST_LOGLIK, 'job_name': "fg_advect_gbp_lik_sanity"}, seed=75)
-# pprint(gbp_lik_result)
-# genbp_lik_result = run_run(**{**base_kwargs, **GENBP_BEST_LOGLIK, 'job_name': "fg_advect_genbp_lik_sanity"}, seed=75)
-# pprint(genbp_lik_result)
-# gbp_mse_result = run_run(**{**base_kwargs, **GBP_BEST_MSE, 'job_name': "fg_advect_gbp_mse_sanity"}, seed=75)
-# pprint(gbp_mse_result)
-# genbp_mse_result = run_run(**{**base_kwargs, **GENBP_BEST_MSE, 'job_name': "fg_advect_genbp_mse_sanity"}, seed=75)
-# pprint(genbp_mse_result)
->>>>>>> 2617caa (tidy up fogotten logli)
 
 # %%
