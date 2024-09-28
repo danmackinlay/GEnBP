@@ -57,6 +57,11 @@ base_kwargs = dict(
     return_fg=False,
     # job_name="fg_cfd_genbp_dev",
     q_ylim=(-3,6),
+    # langevin parameters
+    langevin_step_size= 0.001,
+    langevin_num_samples= 5000,
+    langevin_burn_in= 1000,
+    langevin_thinning= 10,
 )
 
 
@@ -77,7 +82,9 @@ jobinfo_paths = []
 
 for method in [
         'gbp',
-        'genbp'
+        'genbp',
+        'laplace',
+        'langevin',
         ]:
     experiment_name = f"{exp_prefix}_{method}_{sweep_param}"
     job_info = jobs2.submit_jobs(

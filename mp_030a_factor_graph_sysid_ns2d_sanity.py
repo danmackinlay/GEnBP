@@ -52,6 +52,11 @@ base_kwargs = dict(
     q_ylim=(-1, 1),
     lw=0.2,
     # alpha_scale=2.0,
+    # langevin parameters
+    langevin_step_size= 0.001,
+    langevin_num_samples= 5000,
+    langevin_burn_in= 1000,
+    langevin_thinning= 10,
 )
 
 # You can use submitit for job submission if desired
