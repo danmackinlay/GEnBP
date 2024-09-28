@@ -61,13 +61,12 @@ def collate_job_results(job_info, sweep_param):
         params = info['params']
         sweep_value = params[sweep_param]
         print(f"waiting for {info}")
-        job.wait()  # Wait for job completion
-        if job.state in ('DONE', 'COMPLETED', 'FINISHED'):
+        try:
             job_result = job.result()
             if sweep_value not in results:
                 results[sweep_value] = []
             results[sweep_value].append(job_result)
-        else:
+        except Exception as e:
             warnings.warn(f"Job {job} failed with state {job.state}, {job.stderr()}")
 
     # Sort results by sweep_param values
