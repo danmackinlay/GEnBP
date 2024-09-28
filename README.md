@@ -12,14 +12,9 @@ Pull requests welcome.
 `ipython` or `jupyter` is required to run the notebooks.
 
 ```ipython
-%run mp_026_factor_graph_sysid_advection_wrapped.py
 %run mp_026a_factor_graph_sysid_advection_sanity.py
 %run mp_026b_factor_graph_sysid_advection_d.py
 %run mp_026c_factor_graph_sysid_advection_n_ens.py
-%run mp_026d_factor_graph_sysid_advection_hyperparam.py
-%run mp_029_factor_graph_sysid_cfd_wrapped.py
-%run mp_030_factor_graph_sysid_ns2d_wrapped.py
-%run mp_030a_factor_graph_sysid_ns2d_sanity.py
 %run mp_030b_factor_graph_sysid_ns2d_d.py
 %run mp_030c_factor_graph_sysid_ns2d_n_ens.py
 %run mp_030d_factor_graph_sysid_ns2d_visc.py
