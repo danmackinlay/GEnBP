@@ -107,22 +107,32 @@ for method in [
     exps.append(job_info)
     exp_names.append(experiment_name)
     jobinfo_paths.append(file_path)
-
-gbp_experiment, genbp_experiment = exps
-gbp_experiment_name, genbp_experiment_name = exp_names
-gbp_jobinfo_path, genbp_jobinfo_path = jobinfo_paths
+#%%
+gbp_experiment, genbp_experiment, laplace_experiment, langevin = exps
+gbp_experiment_name, genbp_experiment_name, laplace_experiment_name, langevin_experiment_name = exp_names
+gbp_jobinfo_path, genbp_jobinfo_path, laplace_jobinfo_path, langevin_jobinfo_path = jobinfo_paths
 print(f"gbp_experiment_name={gbp_experiment_name!r}")
 print(f"genbp_experiment_name={genbp_experiment_name!r}")
+print(f"laplace_experiment_name={laplace_experiment_name!r}")
+print(f"langevin_experiment_name={langevin_experiment_name!r}")
 print(f"gbp_jobinfo_path={gbp_jobinfo_path!r}")
 print(f"genbp_jobinfo_path={genbp_jobinfo_path!r}")
-
+print(f"laplace_jobinfo_path={laplace_jobinfo_path!r}")
+print(f"langevin_jobinfo_path={langevin_jobinfo_path!r}")
 #%% resume experiments
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'
 genbp_experiment_name=f'{exp_prefix}_genbp_{sweep_param}'
+laplace_experiment_name=f'{exp_prefix}_laplace_{sweep_param}'
+langevin_experiment_name=f'{exp_prefix}_langevin_{sweep_param}'
 gbp_jobinfo_path=f'_logs/{exp_prefix}_gbp_{sweep_param}_jobinfo.pkl.bz2'
 genbp_jobinfo_path=f'_logs/{exp_prefix}_genbp_{sweep_param}_jobinfo.pkl.bz2'
+laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
+langevin_jobinfo_path=f'_logs/{exp_prefix}_langevin_{sweep_param}_jobinfo.pkl.bz2'
 gbp_experiment = jobs2.load_artefact(gbp_jobinfo_path)
 genbp_experiment = jobs2.load_artefact(genbp_jobinfo_path)
+laplace_experiment = jobs2.load_artefact(laplace_jobinfo_path)
+langevin_experiment = jobs2.load_artefact(langevin_jobinfo_path)
+
 #%%
 gbp_experiment_results = jobs2.collate_job_results(
     gbp_experiment,
@@ -139,13 +149,34 @@ genbp_experiment_results = jobs2.collate_job_results(
 )
 pprint(genbp_experiment_results)
 jobs2.save_artefact(genbp_experiment_results, jobs2.construct_output_path(f"{genbp_experiment_name}"))
+
+# %%
+laplace_experiment_results = jobs2.collate_job_results(
+    laplace_experiment,
+    sweep_param
+)
+pprint(laplace_experiment_results)
+jobs2.save_artefact(laplace_experiment_results, jobs2.construct_output_path(f"{laplace_experiment_name}"))
+#%%
+langevin_experiment_results = jobs2.collate_job_results(
+    langevin_experiment,
+    sweep_param
+)
+pprint(langevin_experiment_results)
+jobs2.save_artefact(langevin_experiment_results, jobs2.construct_output_path(f"{langevin_experiment_name}"))
+
 # %%
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'
 genbp_experiment_name=f'{exp_prefix}_genbp_{sweep_param}'
+laplace_experiment_name=f'{exp_prefix}_laplace_{sweep_param}'
 gbp_jobinfo_path=f'_logs/{exp_prefix}_gbp_{sweep_param}_jobinfo.pkl.bz2'
 genbp_jobinfo_path=f'_logs/{exp_prefix}_genbp_{sweep_param}_jobinfo.pkl.bz2'
+laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
+langevin_jobinfo_path=f'_logs/{exp_prefix}_langevin_{sweep_param}_jobinfo.pkl.bz2'
 gbp_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{gbp_experiment_name}"))
 genbp_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{genbp_experiment_name}"))
+laplace_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{laplace_experiment_name}"))
+langevin_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{langevin_experiment_name}"))
 
 y_keys = [
     'time',

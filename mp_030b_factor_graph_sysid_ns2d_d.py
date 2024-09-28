@@ -106,9 +106,11 @@ for method in [
     exp_names.append(experiment_name)
     jobinfo_paths.append(file_path)
 
-gbp_experiment, genbp_experiment = exps
-gbp_experiment_name, genbp_experiment_name = exp_names
-gbp_jobinfo_path, genbp_jobinfo_path = jobinfo_paths
+#%%
+# Unpack the experiments for clarity
+gbp_experiment, genbp_experiment, laplace_experiment, langevin = exps
+gbp_experiment_name, genbp_experiment_name, laplace_experiment_name, langevin_experiment_name = exp_names
+gbp_jobinfo_path, genbp_jobinfo_path, laplace_jobinfo_path = jobinfo_paths
 print(f"gbp_experiment_name={gbp_experiment_name!r}")
 print(f"genbp_experiment_name={genbp_experiment_name!r}")
 print(f"gbp_jobinfo_path={gbp_jobinfo_path!r}")
@@ -117,10 +119,17 @@ print(f"genbp_jobinfo_path={genbp_jobinfo_path!r}")
 #%% resume experiments
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'
 genbp_experiment_name=f'{exp_prefix}_genbp_{sweep_param}'
+laplace_experiment_name=f'{exp_prefix}_laplace_{sweep_param}'
+langevin_experiment_name=f'{exp_prefix}_langevin_{sweep_param}'
 gbp_jobinfo_path=f'_logs/{exp_prefix}_gbp_{sweep_param}_jobinfo.pkl.bz2'
 genbp_jobinfo_path=f'_logs/{exp_prefix}_genbp_{sweep_param}_jobinfo.pkl.bz2'
+laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
+langevin_jobinfo_path=f'_logs/{exp_prefix}_langevin_{sweep_param}_jobinfo.pkl.bz2'
 gbp_experiment = jobs2.load_artefact(gbp_jobinfo_path)
 genbp_experiment = jobs2.load_artefact(genbp_jobinfo_path)
+laplace_experiment = jobs2.load_artefact(laplace_jobinfo_path)
+langevin_experiment = jobs2.load_artefact(langevin_jobinfo_path)
+
 #%%
 gbp_experiment_results = jobs2.collate_job_results(
     gbp_experiment,
@@ -137,13 +146,33 @@ genbp_experiment_results = jobs2.collate_job_results(
 )
 pprint(genbp_experiment_results)
 jobs2.save_artefact(genbp_experiment_results, jobs2.construct_output_path(f"{genbp_experiment_name}"))
+
+# %%
+laplace_experiment_results = jobs2.collate_job_results(
+    laplace_experiment,
+    sweep_param
+)
+pprint(laplace_experiment_results)
+jobs2.save_artefact(laplace_experiment_results, jobs2.construct_output_path(f"{laplace_experiment_name}"))
+#%%
+langevin_experiment_results = jobs2.collate_job_results(
+    langevin_experiment,
+    sweep_param
+)
+pprint(langevin_experiment_results)
+jobs2.save_artefact(langevin_experiment_results, jobs2.construct_output_path(f"{langevin_experiment_name}"))
+
 # %%
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'
 genbp_experiment_name=f'{exp_prefix}_genbp_{sweep_param}'
 gbp_jobinfo_path=f'_logs/{exp_prefix}_gbp_{sweep_param}_jobinfo.pkl.bz2'
 genbp_jobinfo_path=f'_logs/{exp_prefix}_genbp_{sweep_param}_jobinfo.pkl.bz2'
+laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
+langevin_jobinfo_path=f'_logs/{exp_prefix}_langevin_{sweep_param}_jobinfo.pkl.bz2'
 gbp_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{gbp_experiment_name}"))
 genbp_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{genbp_experiment_name}"))
+laplace_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{laplace_experiment_name}"))
+langevin_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{langevin_experiment_name}"))
 
 y_keys = [
     'time',
@@ -213,6 +242,7 @@ for i, ax in enumerate(axs):
         fmt='_', label='GaBP', color='blue'
     )
 
+    # Plot GEnBP results
     genbp_ds = []
     genbp_vals = []
     for d in genbp_experiment_results.keys():
@@ -236,6 +266,44 @@ for i, ax in enumerate(axs):
         genbp_ds, medians, yerr=[lower_err, upper_err],
         fmt='_', label='GEnBP', color='green'
     )
+
+    # Plot Laplace results
+    laplace_ds = []
+    laplace_vals = []
+    for d in laplace_experiment_results.keys():
+        d2 = d**2
+        laplace_ds.append(d2)
+        quantiles = np.nanpercentile(laplace_experiment_results[d][y_key],
+                                     [0, 25, 50, 75, 100])
+        if y_key == 'q_loglik':
+            quantiles /= d2
+        laplace_vals.append(quantiles)
+
+    laplace_ds = np.array(laplace_ds)
+    laplace_vals = np.array(laplace_vals)
+    # plot quantiles of laplace
+    medians = laplace_vals[:, 2]
+    lower = laplace_vals[:, 1]
+    upper = laplace_vals[:, 3]
+    lower_err = medians - lower
+    upper_err = upper - medians
+    ax.errorbar(
+        laplace_ds, medians, yerr=[lower_err, upper_err],
+        fmt='_', label='Laplace', color='brown'
+    )
+
+    # Plot Langevin results
+    langevin_ds = []
+    langevin_vals = []
+    for d in langevin_experiment_results.keys():
+        d2 = d**2
+        langevin_ds.append(d2)
+        quantiles = np.nanpercentile(langevin_experiment_results[d][y_key],
+                                     [0, 25, 50, 75, 100])
+        if y_key == 'q_loglik':
+            quantiles /= d2
+        langevin_vals.append(quantiles)
+
     if y_key in ("time",):
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: '{:.0e}'.format(y)))
