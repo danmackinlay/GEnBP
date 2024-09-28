@@ -105,6 +105,29 @@ GBP_BEST_LOGLIK = {
     'inf_sigma2': 0.2798290057884507,
     'inf_eta2': 0.021652222458903258,
 }
+## NB these are not yet modified to be the best
+LAPLACE_BEST_MSE = {
+#     'q_mse': 0.23089784383773804,
+#     'q_energy': 76.16983032226562,
+#     'q_loglik': float('-inf'),
+#     'time': 32.514729499816895,
+#     'memory': 1869.8203125,
+    'method': 'gbp',
+    'inf_gamma2': 0.180840414852349,
+    'inf_sigma2': 0.07694863715192736,
+    'inf_eta2': 0.031435215762474336,
+ }
+LAPLACE_BEST_LOGLIK = {
+#     'q_mse': 1.3673901557922363,
+#     'q_energy': 358.09307861328125,
+#     'q_loglik': -844.0155639648438,
+#     'time': 21.431819677352905,
+#     'memory': 1280.71484375,
+    'method': 'laplace',
+    'inf_gamma2': 0.037926175911161764,
+    'inf_sigma2': 0.2798290057884507,
+    'inf_eta2': 0.021652222458903258,
+}
 
 def run_run(
         ## process parameters

@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import warnings
@@ -120,53 +121,3 @@ def ensemble_packery(example_batches):
         return split_tensors
 
     return concatenate_batches, split_into_batches
-
-
-import numpy as np
-import torch
-
-def neg_log_dens(x_np):
-    """
-    Computes the negative log density using the PyTorch function `f`.
-
-    Args:
-        x_np (np.ndarray): Input position array in NumPy format.
-
-    Returns:
-        float: The computed loss value as a scalar.
-    """
-    # Convert NumPy array to PyTorch tensor
-    x_torch = torch.from_numpy(x_np).float()
-    # Ensure the tensor does not require gradients for neg_log_dens
-    x_torch.requires_grad_(False)
-    # Compute the loss using the PyTorch function `f`
-    loss = f(x_torch)
-    # Extract the scalar value from the tensor
-    loss_value = loss.item()
-    return loss_value
-
-def grad_neg_log_dens(x_np):
-    """
-    Computes the gradient of the negative log density using `f`.
-
-    Instantiate the System class with the defined functions
-    >>> system = System(neg_log_dens, grad_neg_log_dens=grad_neg_log_dens)
-
-    Args:
-        x_np (np.ndarray): Input position array in NumPy format.
-
-    Returns:
-        tuple: A 2-tuple where the first element is the gradient array (np.ndarray)
-               and the second element is the loss value (float).
-    """
-    # Convert NumPy array to PyTorch tensor and enable gradient computation
-    x_torch = torch.from_numpy(x_np).float().requires_grad_(True)
-    # Compute the loss using the PyTorch function `f`
-    loss = f(x_torch)
-    # Extract the scalar value from the tensor
-    loss_value = loss.item()
-    # Compute gradients
-    loss.backward()
-    # Convert gradients back to NumPy array
-    grad_np = x_torch.grad.detach().numpy()
-    return grad_np, loss_value
