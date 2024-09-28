@@ -18,7 +18,6 @@ Pull requests welcome.
 %run mp_030b_factor_graph_sysid_ns2d_d.py
 %run mp_030c_factor_graph_sysid_ns2d_n_ens.py
 %run mp_030d_factor_graph_sysid_ns2d_visc.py
-%run mp_030e_factor_graph_sysid_ns2d_noise.py
 ```
 
 ## Install dependencies
