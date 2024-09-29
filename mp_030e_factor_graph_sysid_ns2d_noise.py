@@ -67,7 +67,7 @@ executor.update_parameters(
     timeout_min=119,
     # gpus_per_node=1,
     slurm_account=os.getenv('SLURM_ACCOUNT'),
-    slurm_array_parallelism=20,
+    slurm_array_parallelism=50,
     slurm_mem=32*1024,
 )
 

@@ -64,7 +64,7 @@ executor.update_parameters(
     timeout_min=119,
     # gpus_per_node=1,
     slurm_account=os.getenv('SLURM_ACCOUNT'),
-    slurm_array_parallelism=20,
+    slurm_array_parallelism=50,
     slurm_mem=32*1024,
 )
 x = 2**np.arange(2,9)
@@ -106,15 +106,19 @@ for method in [
     exp_names.append(experiment_name)
     jobinfo_paths.append(file_path)
 
-#%%
+
 # Unpack the experiments for clarity
 gbp_experiment, genbp_experiment, laplace_experiment, langevin = exps
 gbp_experiment_name, genbp_experiment_name, laplace_experiment_name, langevin_experiment_name = exp_names
-gbp_jobinfo_path, genbp_jobinfo_path, laplace_jobinfo_path = jobinfo_paths
+gbp_jobinfo_path, genbp_jobinfo_path, laplace_jobinfo_path, langevin_jobinfo_path = jobinfo_paths
 print(f"gbp_experiment_name={gbp_experiment_name!r}")
 print(f"genbp_experiment_name={genbp_experiment_name!r}")
+print(f"laplace_experiment_name={laplace_experiment_name!r}")
+print(f"langevin_experiment_name={langevin_experiment_name!r}")
 print(f"gbp_jobinfo_path={gbp_jobinfo_path!r}")
 print(f"genbp_jobinfo_path={genbp_jobinfo_path!r}")
+print(f"laplace_jobinfo_path={laplace_jobinfo_path!r}")
+print(f"langevin_jobinfo_path={langevin_jobinfo_path!r}")
 
 #%% resume experiments
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'

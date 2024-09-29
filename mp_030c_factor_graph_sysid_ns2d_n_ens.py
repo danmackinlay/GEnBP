@@ -57,7 +57,7 @@ executor.update_parameters(
     timeout_min=59,
     # gpus_per_node=1,
     slurm_account=os.getenv('SLURM_ACCOUNT'),
-    slurm_array_parallelism=20,
+    slurm_array_parallelism=50,
     slurm_mem=16*1024,
 )
 executor.update_parameters(name=genbp_experiment_name)
