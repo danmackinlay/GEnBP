@@ -108,9 +108,23 @@ for method in [
     exp_names.append(experiment_name)
     jobinfo_paths.append(file_path)
 
-gbp_experiment, genbp_experiment, laplace_experiment, langevin = exps
-gbp_experiment_name, genbp_experiment_name, laplace_experiment_name, langevin_experiment_name = exp_names
-gbp_jobinfo_path, genbp_jobinfo_path, laplace_jobinfo_path, langevin_jobinfo_path = jobinfo_paths
+(
+    gbp_experiment,
+    genbp_experiment, laplace_experiment,
+    langevin
+) = exps
+(
+    gbp_experiment_name,
+    genbp_experiment_name,
+    laplace_experiment_name,
+    langevin_experiment_name
+) = exp_names
+(
+    gbp_jobinfo_path,
+    genbp_jobinfo_path,
+    laplace_jobinfo_path,
+    langevin_jobinfo_path
+) = jobinfo_paths
 print(f"gbp_experiment_name={gbp_experiment_name!r}")
 print(f"genbp_experiment_name={genbp_experiment_name!r}")
 print(f"laplace_experiment_name={laplace_experiment_name!r}")

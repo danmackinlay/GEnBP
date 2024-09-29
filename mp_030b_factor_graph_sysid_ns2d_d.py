@@ -79,9 +79,9 @@ exp_names = []
 jobinfo_paths = []
 
 for method in [
-        'gbp',
-        'genbp',
-        'laplace',
+        # 'gbp',
+        # 'genbp',
+        # 'laplace',
         'langevin'
         ]:
     experiment_name = f"{exp_prefix}_{method}_{sweep_param}"
