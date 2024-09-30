@@ -156,9 +156,15 @@ titles = [
 # We create several axes  to reuse to plot both experiments for time, memory, MSE and likelihood.
 from tueplots import bundles, figsizes
 n_plots = len(y_keys)
-plt.rcParams.update(bundles.icmlr2025())
-plt.rcParams.update(figsizes.icmlr2025(nrows=n_plots, ncols=1))
+
+plt.rcParams.update(bundles.iclr2024())
 plt.rcParams['text.latex.preamble'] = plt.rcParams['text.latex.preamble'] + r'\usepackage{mathrsfs}'
+if mode == "col":
+    plt.rcParams.update(figsizes.iclr2024(nrows=n_plots, ncols=1))
+    fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharex=True)
+else:
+    plt.rcParams.update(figsizes.iclr2024(ncols=n_plots, nrows=1))
+    fig, axs = plt.subplots(ncols=n_plots, nrows=1)
 
 
 fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharex=True)

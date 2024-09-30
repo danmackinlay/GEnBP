@@ -41,7 +41,7 @@ from dotenv import load_dotenv
 from neuralop.models import FNO, TFNO
 
 # from tueplots import bundles
-# plt.rcParams.update(bundles.icmlr2025())
+# plt.rcParams.update(bundles.iclr2024())
 
 from src import ensemble_bp
 from src.plots import inbox_plot, cov_sample_plot, ens_plot, cov_diag_plot

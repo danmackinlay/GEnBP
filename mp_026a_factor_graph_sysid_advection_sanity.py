@@ -9,8 +9,8 @@ from mp_026_factor_graph_sysid_advection_wrapped import *
 
 import matplotlib.pyplot as plt
 from tueplots import bundles, figsizes
-# plt.rcParams.update(bundles.icmlr2025())
-# plt.rcParams.update(figsizes.icmlr2025())
+# plt.rcParams.update(bundles.iclr2024())
+# plt.rcParams.update(figsizes.iclr2024())
 
 method = "genbp"
 # method = "gabp"
