@@ -285,30 +285,30 @@ for i, ax in enumerate(axs):
         fmt='_', label='GEnBP', color='green'
     )
 
-    # Plot Laplace results
-    laplace_ds = []
-    laplace_vals = []
-    for d in laplace_experiment_results.keys():
-        d2 = d**2
-        laplace_ds.append(d2)
-        quantiles = np.nanpercentile(laplace_experiment_results[d][y_key],
-                                     [0, 25, 50, 75, 100])
-        if y_key == 'q_loglik':
-            quantiles /= d2
-        laplace_vals.append(quantiles)
+    # # Plot Laplace results
+    # laplace_ds = []
+    # laplace_vals = []
+    # for d in laplace_experiment_results.keys():
+    #     d2 = d**2
+    #     laplace_ds.append(d2)
+    #     quantiles = np.nanpercentile(laplace_experiment_results[d][y_key],
+    #                                  [0, 25, 50, 75, 100])
+    #     if y_key == 'q_loglik':
+    #         quantiles /= d2
+    #     laplace_vals.append(quantiles)
 
-    laplace_ds = np.array(laplace_ds)
-    laplace_vals = np.array(laplace_vals)
-    # plot quantiles of laplace
-    medians = laplace_vals[:, 2]
-    lower = laplace_vals[:, 1]
-    upper = laplace_vals[:, 3]
-    lower_err = medians - lower
-    upper_err = upper - medians
-    ax.errorbar(
-        laplace_ds, medians, yerr=[lower_err, upper_err],
-        fmt='_', label='Laplace', color='brown'
-    )
+    # laplace_ds = np.array(laplace_ds)
+    # laplace_vals = np.array(laplace_vals)
+    # # plot quantiles of laplace
+    # medians = laplace_vals[:, 2]
+    # lower = laplace_vals[:, 1]
+    # upper = laplace_vals[:, 3]
+    # lower_err = medians - lower
+    # upper_err = upper - medians
+    # ax.errorbar(
+    #     laplace_ds, medians, yerr=[lower_err, upper_err],
+    #     fmt='_', label='Laplace', color='brown'
+    # )
 
     # Plot Langevin results
     langevin_ds = []
@@ -321,7 +321,18 @@ for i, ax in enumerate(axs):
         if y_key == 'q_loglik':
             quantiles /= d2
         langevin_vals.append(quantiles)
-
+    langevin_ds = np.array(langevin_ds)
+    langevin_vals = np.array(langevin_vals)
+    # plot quantiles of langevin
+    medians = langevin_vals[:, 2]
+    lower = langevin_vals[:, 1]
+    upper = langevin_vals[:, 3]
+    lower_err = medians - lower
+    upper_err = upper - medians
+    ax.errorbar(
+        langevin_ds, medians, yerr=[lower_err, upper_err],
+        fmt='_', label='Langevin', color='purple'
+    )
     if y_key in ("time",):
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: '{:.0e}'.format(y)))
