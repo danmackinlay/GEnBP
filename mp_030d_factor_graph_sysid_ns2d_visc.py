@@ -58,10 +58,10 @@ base_kwargs = dict(
     # job_name="fg_cfd_genbp_dev",
     q_ylim=(-3,6),
     # langevin parameters
-    langevin_step_size= 0.001,
-    langevin_num_samples= 5000,
-    langevin_burn_in= 1000,
-    langevin_thinning= 10,
+    langevin_step_size=0.001,
+    langevin_num_samples=5000,
+    langevin_burn_in=1000,
+    langevin_thinning=10,
 )
 
 

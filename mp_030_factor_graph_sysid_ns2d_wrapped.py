@@ -114,11 +114,11 @@ def run_run(
         lw=0.1,
         alpha_scale=1.0,
         max_floats = 1024*1024*1024, # 8gb panic limit
-        # langevin parameters
-        langevin_step_size= 0.001,
-        langevin_num_samples= 5000,
-        langevin_burn_in= 1000,
-        langevin_thinning= 10,
+        # langevin`` parameters
+        langevin_step_size=0.001,
+        langevin_num_samples=5000,
+        langevin_burn_in=1000,
+        langevin_thinning=10,
     ):
     torch.manual_seed(seed)
     if q_gamma2 is None:
