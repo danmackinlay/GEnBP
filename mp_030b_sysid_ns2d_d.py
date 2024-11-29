@@ -1,23 +1,21 @@
 # %%
-"""Performance in nonlinearity
+"""Performance in high dimension
 """
 # %load_ext autoreload
 # %autoreload 2
-# %run mp_030_factor_graph_sysid_ns2d_wrapped.py
-from mp_030_factor_graph_sysid_ns2d_wrapped import *
-
+# %run mp_030_sysid_ns2d_wrapped.py
+from mp_030_sysid_ns2d_wrapped import *
 
 from src import jobs2
 from src.jobs import *
-exp_prefix = "cfd_iclr"
-sweep_param = 'visc'
+import submitit
+from pprint import pprint
+import os
+import numpy as np
+import matplotlib.pyplot as plt
 
-sweep_values = np.geomspace(1e-4, 1, num=17, endpoint=True)  # Exponential sweep for 'a'
-# sweep_values = np.arange(16, 512, 32)
-# x = 10**np.arange(-4,4, dtype=float)
-# sweep_values = x.astype(int)
-
-n_replicates = 40
+exp_prefix = "cfd_d_iclr"
+sweep_param = 'd'
 
 #%% sweep some params
 base_kwargs = dict(
@@ -50,21 +48,20 @@ base_kwargs = dict(
     conform_retain_all=True,
     conform_r_eigen_floor=1e-4,
     conform_randomize=True,
-    forney_mode=True,
+    forney_mode=(method=='gbp'),
     ## diagnostics
     DEBUG_MODE=False,
     DEBUG_PLOTS=False,
     FINAL_PLOTS=True,
-    SAVE_FIGURES=True,
-    SHOW_FIGURES=False,
+    SAVE_FIGURES=False,
     return_fg=False,
     # job_name="cfd_genbp_dev",
-    # q_ylim=(-3,6),
     # langevin parameters
     langevin_step_size=0.001,
-    langevin_num_samples=1500,
+    langevin_num_samples=5000,
     langevin_burn_in=1000,
     langevin_thinning=10,
+    # q_ylim=(-3,6),
 )
 
 
@@ -74,10 +71,15 @@ executor.update_parameters(
     timeout_min=119,
     # gpus_per_node=1,
     slurm_account=os.getenv('SLURM_ACCOUNT'),
-    slurm_array_parallelism=40,
+    slurm_array_parallelism=50,
     slurm_mem=32*1024,
 )
+x = 2**np.arange(2,9)
+# sweep_values = np.geomspace(0.1, 100, num=10)  # Exponential sweep for 'a'
+# sweep_values = np.arange(16, 512, 32)
+sweep_values = x.astype(int)
 
+n_replicates = 10
 
 exps = []
 exp_names = []
@@ -87,7 +89,7 @@ for method in [
         'gbp',
         'genbp',
         # 'laplace',
-        'langevin',
+        'langevin'
         ]:
     experiment_name = f"{exp_prefix}_{method}_{sweep_param}"
     job_info = jobs2.submit_jobs(
@@ -103,7 +105,6 @@ for method in [
         experiment_name=experiment_name,
         batch=True
     )
-    # Use helper functions to construct the file path and save the job info
     file_path = jobs2.construct_intermediate_path(f"{experiment_name}_jobinfo")
     jobs2.save_artefact(job_info, file_path)
 
@@ -137,6 +138,7 @@ print(f"gbp_jobinfo_path={gbp_jobinfo_path!r}")
 print(f"genbp_jobinfo_path={genbp_jobinfo_path!r}")
 # print(f"laplace_jobinfo_path={laplace_jobinfo_path!r}")
 print(f"langevin_jobinfo_path={langevin_jobinfo_path!r}")
+
 #%% resume experiments
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'
 genbp_experiment_name=f'{exp_prefix}_genbp_{sweep_param}'
@@ -146,7 +148,6 @@ gbp_jobinfo_path=f'_logs/{exp_prefix}_gbp_{sweep_param}_jobinfo.pkl.bz2'
 genbp_jobinfo_path=f'_logs/{exp_prefix}_genbp_{sweep_param}_jobinfo.pkl.bz2'
 # laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
 langevin_jobinfo_path=f'_logs/{exp_prefix}_langevin_{sweep_param}_jobinfo.pkl.bz2'
-#%%
 gbp_experiment = jobs2.load_artefact(gbp_jobinfo_path)
 genbp_experiment = jobs2.load_artefact(genbp_jobinfo_path)
 # laplace_experiment = jobs2.load_artefact(laplace_jobinfo_path)
@@ -186,11 +187,12 @@ jobs2.save_artefact(langevin_experiment_results, jobs2.construct_output_path(f"{
 
 # %%
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'
-genbp_experiment_name=f'{exp_prefix}_genbp_{sweep_param}'
+genbp_experiment_name = f"{exp_prefix}_genbp_{sweep_param}"
+langevin_experiment_name = f"{exp_prefix}_langevin_{sweep_param}"
 # laplace_experiment_name=f'{exp_prefix}_laplace_{sweep_param}'
 gbp_jobinfo_path=f'_logs/{exp_prefix}_gbp_{sweep_param}_jobinfo.pkl.bz2'
 genbp_jobinfo_path=f'_logs/{exp_prefix}_genbp_{sweep_param}_jobinfo.pkl.bz2'
-laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
+# laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
 langevin_jobinfo_path=f'_logs/{exp_prefix}_langevin_{sweep_param}_jobinfo.pkl.bz2'
 gbp_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{gbp_experiment_name}"))
 genbp_experiment_results = jobs2.load_artefact(jobs2.construct_output_path(f"{genbp_experiment_name}"))
@@ -209,21 +211,22 @@ titles = [
     r'Mean-Squared Error',
     r'Log Likelihood'
 ]
+
 better_high_dict = {
     'time': False,
     'q_mse': False,
     'q_loglik': True,
 }
 
+mode = "row"
+
 # Now we create a plot of the performance of each method.
-# We create several axes  to reuse to plot both experiments for time, memory, MSE and likelihood.
+# We create several axes to reuse to plot both experiments for time, memory, MSE, and likelihood.
 from tueplots import bundles, figsizes
 n_plots = len(y_keys)
-mode = "row"
 
 plt.rcParams.update(bundles.iclr2024())
 plt.rcParams['text.latex.preamble'] = plt.rcParams['text.latex.preamble'] + r'\usepackage{mathrsfs}'
-
 if mode == "col":
     plt.rcParams.update(figsizes.iclr2024(nrows=n_plots, ncols=1))
     fig, axs = plt.subplots(nrows=n_plots, ncols=1, sharex=True)
@@ -231,46 +234,59 @@ else:
     plt.rcParams.update(figsizes.iclr2024(ncols=n_plots, nrows=1, height_to_width_ratio=1.0))
     fig, axs = plt.subplots(ncols=n_plots, nrows=1)
 
+# Determine the maximum x-value from the genbp experiment results to set a consistent right limit for the x-axis
+max_genbp_x = max([d**2 for d in genbp_experiment_results.keys()])
 
 for i, ax in enumerate(axs):
     y_key = y_keys[i]
     title = titles[i]
     better_high = better_high_dict[y_key]
-
+    # x axis should be log scale
     ax.set_xscale('log')
+    # ax.set_yscale('log')  # Uncomment if you want the y-axis to be log scale
+
+    # Plotting GaBP results
     gbp_ds = []
     gbp_vals = []
     for d in gbp_experiment_results.keys():
-        gbp_ds.append(d)
-        gbp_vals.append(
-            np.nanpercentile(gbp_experiment_results[d][y_key],
-            [0, 25, 50, 75, 100]))
+        d2 = d**2
+        gbp_ds.append(d2)
+        quantiles = np.nanpercentile(gbp_experiment_results[d][y_key],
+                                     [0, 25, 50, 75, 100])
+        if y_key == 'q_loglik':
+            quantiles /= d2
+        gbp_vals.append(quantiles)
     gbp_ds = np.array(gbp_ds)
     gbp_vals = np.array(gbp_vals)
     # plot quantiles of gbp
-    medians = gbp_vals[:,2]
-    lower = gbp_vals[:,1]
-    upper = gbp_vals[:,3]
+    medians = gbp_vals[:, 2]
+    lower = gbp_vals[:, 1]
+    upper = gbp_vals[:, 3]
     lower_err = medians - lower
     upper_err = upper - medians
     ax.errorbar(
         gbp_ds, medians, yerr=[lower_err, upper_err],
         fmt='_', label='GaBP', color='blue'
     )
+
+    # Plot GEnBP results
     genbp_ds = []
     genbp_vals = []
     for d in genbp_experiment_results.keys():
-        genbp_ds.append(d)
+        d2 = d**2
+        genbp_ds.append(d2)
         quantiles = np.nanpercentile(genbp_experiment_results[d][y_key],
-            [0, 25, 50, 75, 100])
+                                     [0, 25, 50, 75, 100])
+        if y_key == 'q_loglik':
+            quantiles /= d2
         genbp_vals.append(quantiles)
 
     genbp_ds = np.array(genbp_ds)
     genbp_vals = np.array(genbp_vals)
     # plot quantiles of genbp
-    medians = genbp_vals[:,2]
-    lower = genbp_vals[:,1]
-    upper = genbp_vals[:,3]
+    medians = genbp_vals[:, 2]
+    lower = genbp_vals[:, 1]
+    upper = genbp_vals[:, 3]
     lower_err = medians - lower
     upper_err = upper - medians
     ax.errorbar(
@@ -278,41 +294,75 @@ for i, ax in enumerate(axs):
         fmt='_', label='GEnBP', color='green'
     )
 
+    # # Plot Laplace results
+    # laplace_ds = []
+    # laplace_vals = []
+    # for d in laplace_experiment_results.keys():
+    #     d2 = d**2
+    #     laplace_ds.append(d2)
+    #     quantiles = np.nanpercentile(laplace_experiment_results[d][y_key],
+    #                                  [0, 25, 50, 75, 100])
+    #     if y_key == 'q_loglik':
+    #         quantiles /= d2
+    #     laplace_vals.append(quantiles)
+
+    # laplace_ds = np.array(laplace_ds)
+    # laplace_vals = np.array(laplace_vals)
+    # # plot quantiles of laplace
+    # medians = laplace_vals[:, 2]
+    # lower = laplace_vals[:, 1]
+    # upper = laplace_vals[:, 3]
+    # lower_err = medians - lower
+    # upper_err = upper - medians
+    # ax.errorbar(
+    #     laplace_ds, medians, yerr=[lower_err, upper_err],
+    #     fmt='_', label='Laplace', color='brown'
+    # )
+
+    # Plot Langevin results
     langevin_ds = []
     langevin_vals = []
     for d in langevin_experiment_results.keys():
-        langevin_ds.append(d)
+        d2 = d**2
+        langevin_ds.append(d2)
         quantiles = np.nanpercentile(langevin_experiment_results[d][y_key],
-            [0, 25, 50, 75, 100])
+                                     [0, 25, 50, 75, 100])
+        if y_key == 'q_loglik':
+            quantiles /= d2
         langevin_vals.append(quantiles)
-
     langevin_ds = np.array(langevin_ds)
     langevin_vals = np.array(langevin_vals)
     # plot quantiles of langevin
-    medians = langevin_vals[:,2]
-    lower = langevin_vals[:,1]
-    upper = langevin_vals[:,3]
+    medians = langevin_vals[:, 2]
+    lower = langevin_vals[:, 1]
+    upper = langevin_vals[:, 3]
     lower_err = medians - lower
     upper_err = upper - medians
     ax.errorbar(
         langevin_ds, medians, yerr=[lower_err, upper_err],
         fmt='_', label='Langevin', color='purple'
     )
-
-
-    if y_key in ("time", "q_mse"):
+    if y_key in ("time",):
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: '{:.0e}'.format(y)))
     else:
         ax.ticklabel_format(style='scientific', axis='y', scilimits=(0,0))
 
-    if i==0:
-        ax.legend(fontsize=10)
+    if i == 0:
+        ax.legend(fontsize=12)
 
     if (i == len(axs) - 1) or mode == "row":
-        ax.set_xlabel(r"$\nu$")
+        ax.set_xlabel(r"$D_\mathscr{Q}$")
     if mode == "row":
         ax.text(-0.0, -0.2, f"{chr(97+i)})", transform=ax.transAxes, ha='left', va='top')
+
+    # Set the x-axis limits explicitly based on the genbp values
+    ax.set_xlim(left=gbp_ds.min(), right=max_genbp_x)
+    gbp_last_x = gbp_ds[-1]
+
+    # Shade the area to the right of the last GaBP point
+    oom_label = 'GaBP OOM' if mode == "col" else None
+    ax.axvspan(gbp_last_x, max_genbp_x, color='grey', alpha=0.5, label=oom_label)
 
     if mode == "col":
         ax.set_ylabel(title)

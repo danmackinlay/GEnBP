@@ -4,8 +4,8 @@ sanity check the transport problem works ok
 """
 # %load_ext autoreload
 # %autoreload 2
-# %run mp_026_factor_graph_sysid_advection_wrapped.py
-from mp_026_factor_graph_sysid_advection_wrapped import *
+# %run mp_026_sysid_advection_wrapped.py
+from mp_026_sysid_advection_wrapped import *
 
 import matplotlib.pyplot as plt
 from tueplots import bundles, figsizes

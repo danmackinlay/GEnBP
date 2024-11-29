@@ -9,8 +9,8 @@ import cloudpickle
 import warnings
 from pprint import pprint, pformat
 
-# %run mp_026_factor_graph_sysid_advection_wrapped.py
-from mp_026_factor_graph_sysid_advection_wrapped import *
+# %run mp_026_sysid_advection_wrapped.py
+from mp_026_sysid_advection_wrapped import *
 
 
 #%% sweep some params

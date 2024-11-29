@@ -4,7 +4,7 @@
 # %load_ext autoreload
 # %autoreload 2
 from src.jobs import *
-# %run mp_030_factor_graph_sysid_ns2d_wrapped.py
+# %run mp_030_sysid_ns2d_wrapped.py
 from mp_031_emulate_ns2d_wrapped import *
 
 job_name = "nsemu_err"

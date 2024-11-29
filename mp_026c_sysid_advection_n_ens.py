@@ -18,8 +18,8 @@ The target is Q, X0 is known.
 """
 # %load_ext autoreload
 # %autoreload 2
-# %run mp_026_factor_graph_sysid_advection_wrapped.py
-from mp_026_factor_graph_sysid_advection_wrapped import *
+# %run mp_026_sysid_advection_wrapped.py
+from mp_026_sysid_advection_wrapped import *
 
 # genbp_experiment_name = "adv_genbp_n_ens_sweep"
 genbp_experiment_name = "adv_genbp_n_ens_iclr"

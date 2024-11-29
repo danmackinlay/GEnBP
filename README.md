@@ -13,12 +13,13 @@ Development was supported by the [CSIRO MLAI Future Science Platform](https://gi
 `ipython` or `jupyter` is required to run the notebooks.
 
 ```ipython
-%run mp_026a_factor_graph_sysid_advection_sanity.py
-%run mp_026b_factor_graph_sysid_advection_d.py
-%run mp_026c_factor_graph_sysid_advection_n_ens.py
-%run mp_030b_factor_graph_sysid_ns2d_d.py
-%run mp_030c_factor_graph_sysid_ns2d_n_ens.py
-%run mp_030d_factor_graph_sysid_ns2d_visc.py
+%run mp_026a_sysid_advection_sanity.py
+%run mp_026b_sysid_advection_d.py
+%run mp_026c_sysid_advection_n_ens.py
+%run mp_030b_sysid_ns2d_d.py
+%run mp_030c_sysid_ns2d_n_ens.py
+%run mp_030d_sysid_ns2d_visc.py
+%run mp_031c_emulate_ns2d_errors.py
 ```
 
 ## Installation

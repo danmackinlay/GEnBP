@@ -3,8 +3,8 @@
 """
 %load_ext autoreload
 %autoreload 2
-# %run mp_030_factor_graph_sysid_ns2d_wrapped.py
-from mp_030_factor_graph_sysid_ns2d_wrapped import *
+# %run mp_030_sysid_ns2d_wrapped.py
+from mp_030_sysid_ns2d_wrapped import *
 
 # Choose the inference method
 # method = 'genbp'

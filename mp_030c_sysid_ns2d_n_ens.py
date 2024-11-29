@@ -4,8 +4,8 @@
 # %load_ext autoreload
 # %autoreload 2
 from src.jobs import *
-# %run mp_030_factor_graph_sysid_ns2d_wrapped.py
-from mp_030_factor_graph_sysid_ns2d_wrapped import *
+# %run mp_030_sysid_ns2d_wrapped.py
+from mp_030_sysid_ns2d_wrapped import *
 
 genbp_experiment_name = "cfd_genbp_n_ens_iclr"
 sweep_param = 'n_ens'
