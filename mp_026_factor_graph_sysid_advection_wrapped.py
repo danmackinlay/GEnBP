@@ -21,23 +21,21 @@ The target is Q, X0 is known.
 # %autoreload 2
 
 import time
-from memory_profiler import memory_usage
 
 import torch
 from torch.autograd import grad
-from torch.distributions import LowRankMultivariateNormal, MultivariateNormal
+from torch.distributions import LowRankMultivariateNormal, MultivariateNormal, Normal
+from torch import optim
+import torch.autograd.functional as F
+
 
 import time
-from memory_profiler import memory_usage
 from pprint import pprint
 
 import numpy as np
 import submitit
 import os
 from dotenv import load_dotenv
-
-# from tueplots import bundles
-# plt.rcParams.update(bundles.icml2024())
 
 from src import ensemble_bp
 from src.plots import inbox_plot, cov_sample_plot, ens_plot, cov_diag_plot
@@ -145,8 +143,8 @@ def run_run(
         method='genbp',
         callback=lambda *a: None,
         n_ens=125,
-        damping=0.25, # damping
-        # damping=0.0,  # no damping
+        # damping=0.25, # damping
+        damping=0.0,  # no damping
         # gamma2=0.1,
         hard_damping=True,
         # inf_tau2=0.1,  # assumed process noise (so it can be >0)
@@ -170,13 +168,18 @@ def run_run(
         DEBUG_MODE=True,
         DEBUG_PLOTS=False,
         FINAL_PLOTS=False,
-        SAVE_FIGURES=False,
+        SAVE_FIGURES=True,
+        SHOW_FIGURES=True,
         PLOT_TITLE=False,
         return_fg=False,
-        q_ylim=(-3,7),
+        # q_ylim=(-3,7),
+        q_ylim=None,
         lw=0.1,
         alpha_scale=1.0,
     ):
+    print("==================")
+    print(f"method {method}")
+    print("==================")
     torch.manual_seed(seed)
     if q_gamma2 is None:
         q_gamma2 = inf_gamma2
@@ -184,8 +187,10 @@ def run_run(
         max_rank=n_ens
     conv = make_blur_conv_kernel_1d(int(d*conv_radius))
     # q = make_ball_1d(d, circ_radius)
-    q = make_blur_conv_kernel_1d(d, scale=0.25, offset=0) * d
-    x0 = make_ball_1d(d, circ_radius, offset=d//2)
+    q = make_blur_conv_kernel_1d(d, scale=0.25, trunc_end=0) * d
+    x0 = make_ball_1d(d, circ_radius, trunc_end=d//2)
+    trunc_start = 0
+    trunc_end = -1
 
     # simulate first step to get dimensions right
     q_prior_ens = random_cyclic_fns_1d(n_ens, d)
@@ -410,13 +415,14 @@ def run_run(
     # fg.observe_d(dict(x0=x0))
     # fg_real.observe_d(dict(x0=x0))
     fg_real.ancestral_sample()
+    gamma2s = {"q": q_gamma2 }
+
 
 
     if method == 'genbp':
         # genbp version
         gamma2s = {"q": q_gamma2 }
         start_time = time.time()
-        peak_memory_start = memory_usage(max_usage=True)
         if not forney_mode:
             inf_sem = sem
         else:
@@ -461,7 +467,6 @@ def run_run(
         )
         fg.ancestral_sample()
         q_node = fg.get_var_node('q')
-
         for t in range(1, n_timesteps+1):
             print("observing", f'y{t}')
             obs = fg_real.get_var_node(f'y{t}').get_ens().squeeze(0)
@@ -484,8 +489,32 @@ def run_run(
                 ax_q.set_title("q")
                 ax_x.set_title("xn")
 
-            legend_handles_q.append(ens_plot(q_node.get_ens(), ax=ax_q, color='red', ecolor='red', label="prior samples", lw=lw, alpha_scale=alpha_scale))
-            legend_handles_x.append(ens_plot(x_node.get_ens(), ax=ax_x, color='red', ecolor='red', label="prior samples", lw=lw, alpha_scale=alpha_scale))
+            legend_handles_q.append(
+                ens_plot(
+                    q_node.get_ens(),
+                    trunc_start=trunc_start,
+                    trunc_end=trunc_end,
+                    ax=ax_q,
+                    color="red",
+                    ecolor="red",
+                    label="prior samples",
+                    lw=lw,
+                    alpha_scale=alpha_scale,
+                )
+            )
+            legend_handles_x.append(
+                ens_plot(
+                    x_node.get_ens(),
+                    trunc_start=trunc_start,
+                    trunc_end=trunc_end,
+                    ax=ax_x,
+                    color="red",
+                    ecolor="red",
+                    label="prior samples",
+                    lw=lw,
+                    alpha_scale=alpha_scale,
+                )
+            )
 
             legend_labels_q.append("prior samples")
 
@@ -503,7 +532,8 @@ def run_run(
             ax_q.plot(q, linestyle='dashed', label="truth", color='black')
             # ax_x.plot(true_xn, linestyle='dashed', label="truth")
 
-            ax_q.set_ylim(*q_ylim)
+            if q_ylim:
+                ax_q.set_ylim(*q_ylim)
             ax_q.legend(legend_handles_q, legend_labels_q)
             # ax_x.legend(legend_handles_x, legend_labels_q)
             # fig_q.show()
@@ -511,16 +541,16 @@ def run_run(
             if SAVE_FIGURES:
                 os.makedirs(FIG_DIR, exist_ok=True)
                 fig_q.savefig(f"{FIG_DIR}/{job_name}_{seed}_jq_update.pdf")
+                # fig_q.savefig(f"{FIG_DIR}/{job_name}_{seed}_jq_update.png")
                 fig_x.savefig(f"{FIG_DIR}/{job_name}_{seed}_xn_update.pdf")
-
-            plt.show()
+                # fig_x.savefig(f"{FIG_DIR}/{job_name}_{seed}_xn_update.png")
+            if SHOW_FIGURES:
+                plt.show()
 
         print(energies)
         end_time = time.time()
-        peak_memory_end = memory_usage(max_usage=True)
 
         elapsed_time = end_time - start_time
-        peak_memory_usage = peak_memory_end - peak_memory_start
         # q_m_est, q_cov_est = q_node.get_moments_belief()
         q_residual = q_node.get_residual(q)
         q_mse = q_node.get_mse(q)
@@ -533,7 +563,6 @@ def run_run(
             q_energy=q_energy.item(),
             q_loglik=q_loglik.item(),
             time=elapsed_time,
-            memory=peak_memory_usage,
             n_iters=0,
         )
         if return_fg:
@@ -543,7 +572,6 @@ def run_run(
     elif method == 'gbp':
         ## GaBP version
         start_time = time.time()
-        peak_memory_start = memory_usage(max_usage=True)
 
         gbp_settings = GBPSettings(
             damping = damping,
@@ -638,8 +666,36 @@ def run_run(
             q_m_est, x1_m_est, *_, xn_m_est = fg.belief_means_separately()
             q_cov_est, x1_cov_est, *_, xn_cov_est = fg.belief_covs()
 
-            legend_handles_q.append(cov_sample_plot(q_m_est, q_cov_est, n_ens=n_ens, ax=ax_q, color='red', ecolor='red', label="prior samples", lw=lw, alpha_scale=alpha_scale))
-            legend_handles_x.append(cov_sample_plot(xn_m_est, xn_cov_est, n_ens=n_ens, ax=ax_x, color='red', ecolor='red', label="prior samples", lw=lw, alpha_scale=alpha_scale))
+            legend_handles_q.append(
+                cov_sample_plot(
+                    q_m_est,
+                    q_cov_est,
+                    n_ens=n_ens,
+                    trunc_start=trunc_start,
+                    trunc_end=trunc_end,
+                    ax=ax_q,
+                    color="red",
+                    ecolor="red",
+                    label="prior samples",
+                    lw=lw,
+                    alpha_scale=alpha_scale,
+                )
+            )
+            legend_handles_x.append(
+                cov_sample_plot(
+                    xn_m_est,
+                    xn_cov_est,
+                    n_ens=n_ens,
+                    trunc_start=trunc_start,
+                    trunc_end=trunc_end,
+                    ax=ax_x,
+                    color="red",
+                    ecolor="red",
+                    label="prior samples",
+                    lw=lw,
+                    alpha_scale=alpha_scale,
+                )
+            )
             legend_labels_q.append("prior samples")
 
         if DEBUG_MODE:
@@ -651,8 +707,36 @@ def run_run(
             q_m_est, x1_m_est, *_, xn_m_est = fg.belief_means_separately()
             q_cov_est, x1_cov_est, *_, xn_cov_est = fg.belief_covs()
 
-            legend_handles_q.append(cov_sample_plot(q_m_est, q_cov_est, n_ens=n_ens, ax=ax_q, color='blue', ecolor='blue', label="posterior samples", lw=lw, alpha_scale=alpha_scale))
-            legend_handles_x.append(cov_sample_plot(xn_m_est, xn_cov_est, n_ens=n_ens, ax=ax_x, color='blue', ecolor='blue', label="posterior samples", lw=lw, alpha_scale=alpha_scale))
+            legend_handles_q.append(
+                cov_sample_plot(
+                    q_m_est,
+                    q_cov_est,
+                    n_ens=n_ens,
+                    trunc_start=trunc_start,
+                    trunc_end=trunc_end,
+                    ax=ax_q,
+                    color="blue",
+                    ecolor="blue",
+                    label="posterior samples",
+                    lw=lw,
+                    alpha_scale=alpha_scale,
+                )
+            )
+            legend_handles_x.append(
+                cov_sample_plot(
+                    xn_m_est,
+                    xn_cov_est,
+                    n_ens=n_ens,
+                    trunc_start=trunc_start,
+                    trunc_end=trunc_end,
+                    ax=ax_x,
+                    color="blue",
+                    ecolor="blue",
+                    label="posterior samples",
+                    lw=lw,
+                    alpha_scale=alpha_scale,
+                )
+            )
             legend_labels_q.append("posterior samples")
 
             q_line_handle, = ax_q.plot(q, linestyle='dashed', label="ground truth", color='black')
@@ -660,8 +744,8 @@ def run_run(
             legend_labels_q.append("ground truth")
 
             # ax_x.plot(true_xn, linestyle='dashed', label="truth")
-
-            ax_q.set_ylim(*q_ylim)
+            if q_ylim:
+                ax_q.set_ylim(*q_ylim)
             ax_q.legend(legend_handles_q, legend_labels_q)
             ax_x.legend(legend_handles_x, legend_labels_q)
 
@@ -669,14 +753,16 @@ def run_run(
             # fig_x.show()
             if SAVE_FIGURES:
                 fig_q.savefig(f"{FIG_DIR}/{job_name}_{seed}_jq_update.pdf")
+                # fig_q.savefig(f"{FIG_DIR}/{job_name}_{seed}_jq_update.png")
                 fig_x.savefig(f"{FIG_DIR}/{job_name}_{seed}_xn_update.pdf")
+                # fig_x.savefig(f"{FIG_DIR}/{job_name}_{seed}_xn_update.png")
 
-            plt.show()
+            if SHOW_FIGURES:
+                plt.show()
+
 
         end_time = time.time()
-        peak_memory_end = memory_usage(max_usage=True)
         elapsed_time = end_time - start_time
-        peak_memory_usage = peak_memory_end - peak_memory_start
 
         # fg_energy = fg.energy()
         # belief eval is fiddly; the GaBP code wants to evaluate factor-wise AFAICS
@@ -709,7 +795,288 @@ def run_run(
             q_energy=q_energy.item(),
             q_loglik=q_loglik.item(),
             time=elapsed_time,
-            memory=peak_memory_usage,
+            n_iters=0,
+        )
+        if return_fg:
+            res['fg'] = fg
+        return res
+
+    elif method == 'laplace':
+        ## likelihood version
+        start_time = time.time()
+        # peak_memory_start = memory_usage(max_usage=True)
+
+        fg = ensemble_bp.FactorGraph.from_sem(
+            sem,
+            {
+                "q": q_prior_ens,
+            },
+            sigma2=inf_sigma2,
+            gamma2=inf_gamma2,
+            gamma2s=gamma2s,
+            eta2=inf_eta2,
+            max_rank=max_rank,
+            damping=damping,
+            max_steps=max_steps,
+            hard_damping=hard_damping,
+            callback=genbp_diag_plot if DEBUG_PLOTS else callback,
+            empty_inboxes=empty_inboxes,
+            min_mp_steps=min_mp_steps,
+            belief_retain_all=belief_retain_all,
+            conform_retain_all=conform_retain_all,
+            conform_randomize=conform_randomize,
+            conform_r_eigen_floor=conform_r_eigen_floor,
+            DEBUG_MODE=DEBUG_MODE,
+            verbose=10,
+            atol=atol,
+            rtol=rtol,
+        )
+        fg.ancestral_sample()
+        q_node = fg.get_var_node('q')
+
+        q_prior_mean, q_prior_cov = moments_from_ens(
+            q_prior_ens, sigma2=inf_sigma2)
+        # full-rank variance:
+        # q_prior_cov = q_prior_cov_h.to_tensor()
+        q_prior = MultivariateNormal(
+            q_prior_mean, q_prior_cov.to_tensor())
+        x_prior_means = []
+        x_prior_covs = []
+        x_priors = []
+        obs = []
+        y_models = []
+
+        for t in range(1, n_timesteps+1):
+            x_prior_mean, x_prior_cov = moments_from_ens(
+                fg.get_var_node(f'x{t}').get_ens(),
+                sigma2=inf_sigma2
+            )
+            x_prior_means.append(x_prior_mean)
+            x_prior_covs.append(x_prior_cov)
+            x_priors.append(MultivariateNormal(
+                x_prior_mean, x_prior_cov.to_tensor()))
+
+            # y_prior_mean, y_prior_cov = moments_from_ens(
+            #     fg_real.get_var_node(f'y{t}'),
+            #     sigma2=obs_sigma2)
+            # y_prior_means.append(y_prior_mean)
+            # y_prior_covs.append(y_prior_cov)
+            # y_likelihood = MultivariateNormal(
+            this_obs = fg_real.get_var_node(f'y{t}').get_ens().squeeze(0)
+            obs.append(this_obs)
+            y_model = Normal(
+                loc=this_obs,
+                scale=obs_sigma2**0.5
+            )
+            y_models.append(y_model)
+
+        x_prior_mean = sim_q_x__xp_noiseless(q_prior_mean, x0)
+
+        # x_prior_cov = torch.full((x_len,), (tau2+obs_sigma2))
+        # y_prior_cov = torch.full((y_len,), obs_sigma2)
+        def log_density(q, xs, n_timesteps):
+            log_density_val = torch.zeros(1, dtype=q.dtype, device=q.device)
+
+            # Add the log density contribution from the prior on `q`
+            log_density_val += q_prior.log_prob(q).sum()
+            x_prev = x0  # Assuming xs[0] is x0 and is given/known (not a variable)
+
+            # Loop over the number of time steps
+            for t in range(1, n_timesteps + 1):
+                # Predict the next state from the previous state and parameter q
+                x_pred = sim_q_x__xp_noiseless(q, x_prev)
+                x = xs[t-1]
+                # Add the log density contribution from the prior on x
+                log_density_val += x_priors[t-1].log_prob(x).sum()
+                # Calculate the observation from the predicted state
+                y_pred = sim_x_y_noiseless(x_pred)
+                # nb we could use the use-supplied state, but this will cook our chance of estimating q
+
+                # Observation likelihood
+                log_density_val += y_models[t-1].log_prob(y_pred).sum()
+
+                # Update x_prev for the next iteration
+                x_prev = x
+
+            return log_density_val
+
+        def compute_hessian_for_q(log_density_func, q_est, x_ests, n_timesteps):
+            # Wrap the log density computation to only return the value for `q`
+            def wrapped_log_density(q):
+                return log_density_func(q, x_ests, n_timesteps)
+
+            # Compute the Hessian matrix for `q`
+            hessian_q = F.hessian(wrapped_log_density, q_est)
+            return hessian_q
+
+        def compute_hessian_for_x1(log_density_func, q_est, x_ests, n_timesteps):
+            # Wrap the log density computation to only return the value for `q`
+            def wrapped_log_density(x1):
+                return log_density_func(q_est, [x1] + x_ests[1:], n_timesteps)
+
+            # Compute the Hessian matrix for `x1`
+            hessian_x1 = F.hessian(wrapped_log_density, x_ests[1])
+            return hessian_x1
+
+        def compute_hessian_for_xn(log_density_func, q_est, x_ests, n_timesteps):
+            # Wrap the log density computation to only return the value for `q`
+            def wrapped_log_density(xn):
+                return log_density_func(q_est, x_ests[:-1]+[xn], n_timesteps)
+
+            # Compute the Hessian matrix for `x1`
+            hessian_xn = F.hessian(wrapped_log_density, x_ests[-1])
+            return hessian_xn
+
+        q_m_est = q_prior_mean.clone().detach().requires_grad_(True)
+        x_m_ests = [x_prior_mean.clone().detach().requires_grad_(True) for x_prior_mean in x_prior_means]
+        parameters = [q_m_est] + x_m_ests
+        optimizer = optim.SGD(parameters, lr=0.01)
+
+        if FINAL_PLOTS:
+            legend_handles_q = []
+            legend_handles_x = []
+            legend_labels_q = []
+
+            fig_q = plt.figure(1)
+            fig_x = plt.figure(2)
+
+            ax_q = fig_q.add_subplot(1, 1, 1)
+            ax_x = fig_x.add_subplot(1, 1, 1)
+            if PLOT_TITLE:
+                ax_q.set_title("q")
+                ax_x.set_title("xn")
+
+            x1_m_est, *_, xn_m_est = x_m_ests
+
+            # legend_handles_q.append(cov_sample_plot(q_m_est, q_cov_est, n_ens=n_ens, ax=ax_q, color='red', ecolor='red', label="prior samples", lw=lw, alpha_scale=alpha_scale))
+            # legend_handles_x.append(cov_sample_plot(xn_m_est, xn_cov_est, n_ens=n_ens, ax=ax_x, color='red', ecolor='red', label="prior samples", lw=lw, alpha_scale=alpha_scale))
+            # legend_labels_q.append("prior samples")
+
+        # Optimization loop with early stopping
+        convergence_threshold = 1e-4  # Define a threshold for early stopping
+        previous_log_density = None
+
+        for iteration in range(max_steps):
+            optimizer.zero_grad()
+
+            # Compute log density
+            log_density_val = log_density(q_m_est, x_m_ests, n_timesteps)
+
+            # Early stopping condition
+            if previous_log_density is not None and abs(log_density_val.item() - previous_log_density) < convergence_threshold:
+                print(f"Convergence achieved after {iteration} iterations.")
+                break
+            previous_log_density = log_density_val.item()
+
+            # Perform gradient ascent
+            (-log_density_val).backward()
+
+            # Update parameters
+            optimizer.step()
+
+            # Optionally print log density to monitor progress
+            print(f"Iteration {iteration}, Log Density: {log_density_val.item()}")
+
+        hessian_q = compute_hessian_for_q(log_density, q_m_est, x_m_ests, n_timesteps)
+        hessian_x1 = compute_hessian_for_x1(log_density, q_m_est, x_m_ests, n_timesteps)
+        hessian_xn = compute_hessian_for_xn (log_density, q_m_est, x_m_ests, n_timesteps)
+        # Compute the covariance from the inverse of the Hessian for q
+        q_cov_est = torch.inverse(-hessian_q)
+        x1_cov_est = torch.inverse(-hessian_x1)
+        xn_cov_est = torch.inverse(-hessian_xn)
+        print("Covariance matrix of q:", q_cov_est)
+
+
+        if FINAL_PLOTS:
+            legend_handles_q.append(
+                cov_sample_plot(
+                    q_m_est,
+                    q_cov_est,
+                    n_ens=n_ens,
+                    trunc_start=trunc_start,
+                    trunc_end=trunc_end,
+                    ax=ax_q,
+                    color="blue",
+                    ecolor="blue",
+                    label="posterior samples",
+                    lw=lw,
+                    alpha_scale=alpha_scale,
+                )
+            )
+            legend_handles_x.append(
+                cov_sample_plot(
+                    xn_m_est,
+                    xn_cov_est,
+                    n_ens=n_ens,
+                    trunc_start=trunc_start,
+                    trunc_end=trunc_end,
+                    ax=ax_x,
+                    color="blue",
+                    ecolor="blue",
+                    label="posterior samples",
+                    lw=lw,
+                    alpha_scale=alpha_scale,
+                )
+            )
+            legend_labels_q.append("posterior samples")
+
+            q_line_handle, = ax_q.plot(q, linestyle='dashed', label="ground truth", color='black')
+            legend_handles_q.append(q_line_handle)
+            legend_labels_q.append("ground truth")
+
+            # ax_x.plot(true_xn, linestyle='dashed', label="truth")
+            if q_ylim:
+                ax_q.set_ylim(*q_ylim)
+            ax_q.legend(legend_handles_q, legend_labels_q)
+            ax_x.legend(legend_handles_x, legend_labels_q)
+
+            # fig_q.show()
+            # fig_x.show()
+            if SAVE_FIGURES:
+                fig_q.savefig(f"{FIG_DIR}/{job_name}_{seed}_jq_update.pdf")
+                # fig_q.savefig(f"{FIG_DIR}/{job_name}_{seed}_jq_update.png")
+                fig_x.savefig(f"{FIG_DIR}/{job_name}_{seed}_xn_update.pdf")
+                # fig_x.savefig(f"{FIG_DIR}/{job_name}_{seed}_xn_update.png")
+
+            if SHOW_FIGURES:
+                plt.show()
+
+
+        end_time = time.time()
+        # peak_memory_end = memory_usage(max_usage=True)
+        elapsed_time = end_time - start_time
+        # peak_memory_usage = peak_memory_end - peak_memory_start
+
+        # fg_energy = fg.energy()
+        # belief eval is fiddly; the GaBP code wants to evaluate factor-wise AFAICS
+        q_m_est = q_m_est
+        q_residual = q_m_est - q
+        q_mse = (q_residual**2).mean()
+        # q_energy = 0.5 * q_residual @ torch.inverse(q_cov_est) @ q_residual
+        q_loglik = torch.tensor(float('-inf'))
+        try:
+            q_loglik = MultivariateNormal(q_m_est, q_cov_est).log_prob(q)
+        except ValueError as e:
+            try:
+                eigs = torch.linalg.eigvalsh(q_cov_est)
+                min_eig = eigs.min()
+                max_eig = eigs.max()
+                warnings.warn(f"e {e}, min eig {min_eig}, max eig {max_eig}")
+                if min_eig < 0:
+                    q_loglik = MultivariateNormal(q_m_est, q_cov_est + (-min_eig + 1e-6) * torch.eye(q_len)).log_prob(q)
+                else:  #???
+                    q_loglik = MultivariateNormal(q_m_est, q_cov_est + (1e-6) * torch.eye(q_len)).log_prob(q)
+            except ValueError as e2:
+                #doomed
+                pass
+
+        res = dict(
+            # fg_mse=fg_energy.item(),
+            q_mse=q_mse.item(),
+            # q_energy=q_energy.item(),
+            q_loglik=q_loglik.item(),
+            time=elapsed_time,
+            # memory=peak_memory_usage,
             n_iters=0,
         )
         if return_fg:

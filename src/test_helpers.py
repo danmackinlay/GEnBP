@@ -9,7 +9,7 @@ import torch.nn.functional as F
 ## 1d testers
 ##
 
-def make_ball_1d(d, radius, offset=0, dtype=None):
+def make_ball_1d(d, radius, trunc_end=0, dtype=None):
     """returns a 1d torch array representing the discretization of a disc of the given radius which is simply an interval.
     Values are 1 inside the circle and 0 outside
     """
@@ -17,7 +17,7 @@ def make_ball_1d(d, radius, offset=0, dtype=None):
         dtype = torch.get_default_dtype()
     x = torch.linspace(-d, d, d, dtype=dtype)
     disc = ((x**2) < radius**2).type(dtype)
-    return torch.roll(disc, offset, dims=(0,))
+    return torch.roll(disc, trunc_end, dims=(0,))
 
 def convolve_array_1d(a, b):
     """
@@ -79,11 +79,11 @@ def convolve_array_1d(a, b):
 
 def make_blur_conv_kernel_1d(
         d, scale=0.5,
-        offset=None,
+        trunc_end=None,
         dtype=None):
     """
     constructs a blurring 1d convolution kernel of size d
-    if offset is not given, center it on the interval.
+    if trunc_end is not given, center it on the interval.
     """
     if dtype is None:
         dtype = torch.get_default_dtype()
@@ -92,9 +92,9 @@ def make_blur_conv_kernel_1d(
         dtype=dtype)
     kernel = torch.exp(-(x**2))
     kernel /= kernel.sum()
-    if offset is None:
+    if trunc_end is None:
         return kernel
-    return torch.roll(kernel, offset - d // 2, dims=(0,))
+    return torch.roll(kernel, trunc_end - d // 2, dims=(0,))
 
 
 def random_top_hats_basis_1d(n, d, dtype=None):
@@ -195,7 +195,7 @@ def gaussian_1d(n):
 ## 2d testers
 ##
 
-def make_ball_2d(d, radius, offset=(0,0), dtype=None):
+def make_ball_2d(d, radius, trunc_end=(0,0), dtype=None):
     """returns a 2d torch array representing the discretization of a disc of the given radius.
     Values are 1 inside the circle and 0 outside
     """
@@ -204,7 +204,7 @@ def make_ball_2d(d, radius, offset=(0,0), dtype=None):
     x = torch.linspace(-d, d, d, dtype=dtype)
     xx, yy = torch.meshgrid(x, x)
     disc = ((xx**2 + yy**2) < radius**2).type(dtype)
-    return torch.roll(disc, offset, dims=(0,1))
+    return torch.roll(disc, trunc_end, dims=(0,1))
 
 
 def channel_pad_2d(a):

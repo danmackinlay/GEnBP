@@ -1,7 +1,13 @@
-import numpy as np
+"""
+Various versions of tensor packing and unpacking functions.
+We experimented with different APIs and desperately need to consolidate.
+"""
+import warnings
+from collections import namedtuple
+
 import torch
 import torch.nn as nn
-import warnings
+
 
 class TensorPackery:
     """
@@ -121,3 +127,332 @@ def ensemble_packery(example_batches):
         return split_tensors
 
     return concatenate_batches, split_into_batches
+
+ParamInfo = namedtuple("ParamInfo", ["shape", "num_elements", "is_complex", "dtype"])
+TensorInfo = namedtuple("TensorInfo", ["shape", "is_complex", "dtype"])
+
+
+def flatten_model_parameters(model):
+    """
+    Flattens the parameters of a PyTorch model into a single vector and stores their shapes and types.
+
+    Args:
+        model (nn.Module): The PyTorch model.
+
+    Returns:
+        W_vector (torch.Tensor): Flattened parameter vector of shape (N_w,).
+        W_shapes (List[ParamInfo]): List containing parameter info.
+    """
+    W_shapes = []
+    W_vector = []
+    for param in model.parameters():
+        shape = param.shape
+        num_elements = param.numel()
+        is_complex = torch.is_complex(param)
+        dtype = param.dtype
+        W_shapes.append(
+            ParamInfo(
+                shape=shape,
+                num_elements=num_elements,
+                is_complex=is_complex,
+                dtype=dtype,
+            )
+        )
+        if is_complex:
+            real_part = param.detach().real.view(-1)
+            imag_part = param.detach().imag.view(-1)
+            W_vector.append(torch.cat([real_part, imag_part]))
+        else:
+            W_vector.append(param.detach().view(-1))
+    W_vector = torch.cat(W_vector)
+    return W_vector, W_shapes
+
+
+def unflatten_model_parameters_batch(W_vector_batch, W_shapes):
+    """
+    Unflattens a batch of parameter vectors back into lists of parameter tensors using stored shapes.
+
+    Args:
+        W_vector_batch (torch.Tensor): Batch of flattened parameter vectors of shape (batch_size, N_w).
+        W_shapes (List[ParamInfo]): List containing parameter info.
+
+    Returns:
+        W_tensors_batch (List[List[torch.Tensor]]): List of parameter tensors per sample.
+
+    Raises:
+        ValueError: If the vector size does not match the expected total size.
+    """
+    batch_size = W_vector_batch.shape[0]
+    total_expected_size = sum(
+        info.num_elements * (2 if info.is_complex else 1) for info in W_shapes
+    )
+    if W_vector_batch.shape[1] != total_expected_size:
+        raise ValueError(
+            f"Parameter vector size {W_vector_batch.shape[1]} does not match expected total size {total_expected_size}."
+        )
+
+    W_tensors_batch = []
+    for b in range(batch_size):
+        W_vector = W_vector_batch[b]
+        W_tensors = []
+        idx = 0
+        for info in W_shapes:
+            num_elements = info.num_elements
+            shape = info.shape
+            is_complex = info.is_complex
+            dtype = info.dtype
+            if is_complex:
+                # Read real and imaginary parts
+                real_part = W_vector[idx : idx + num_elements].view(shape)
+                idx += num_elements
+                imag_part = W_vector[idx : idx + num_elements].view(shape)
+                idx += num_elements
+                # Reconstruct complex tensor
+                param_tensor = torch.complex(real_part, imag_part).to(dtype)
+            else:
+                param_tensor = W_vector[idx : idx + num_elements].view(shape).to(dtype)
+                idx += num_elements
+            W_tensors.append(param_tensor)
+        W_tensors_batch.append(W_tensors)
+    return W_tensors_batch
+
+
+def set_model_parameters(model, W_tensors):
+    """
+    Sets the parameters of a PyTorch model from a list of parameter tensors.
+
+    Args:
+        model (nn.Module): The PyTorch model.
+        W_tensors (List[torch.Tensor]): List of parameter tensors.
+    """
+    param_list = list(model.parameters())
+    for param, new_param in zip(param_list, W_tensors):
+        if param.data.shape != new_param.shape:
+            raise ValueError(
+                f"Shape mismatch: parameter shape {param.data.shape}, new_param shape {new_param.shape}"
+            )
+        param.data.copy_(new_param.data)
+
+
+def flatten_tensor_batch(tensor_batch):
+    """
+    Flattens a batch of tensors into a batch of vectors and stores their shapes and types.
+
+    Args:
+        tensor_batch (torch.Tensor): Tensor of shape (batch_size, *).
+
+    Returns:
+        vector_batch (torch.Tensor): Flattened vectors of shape (batch_size, N).
+        tensor_info (TensorInfo): Information about the tensor shape, complex flag, and dtype.
+    """
+    batch_size = tensor_batch.shape[0]
+    shape = tensor_batch.shape[1:]  # Exclude batch dimension
+    is_complex = torch.is_complex(tensor_batch)
+    dtype = tensor_batch.dtype
+    if is_complex:
+        real_part = tensor_batch.real.view(batch_size, -1)
+        imag_part = tensor_batch.imag.view(batch_size, -1)
+        vector_batch = torch.cat([real_part, imag_part], dim=1)
+    else:
+        vector_batch = tensor_batch.view(batch_size, -1)
+    tensor_info = TensorInfo(shape=shape, is_complex=is_complex, dtype=dtype)
+    return vector_batch, tensor_info
+
+
+def unflatten_tensor_batch(vector_batch, tensor_info):
+    """
+    Unflattens a batch of vectors back into tensors of a given shape.
+
+    Args:
+        vector_batch (torch.Tensor): Flattened vectors of shape (batch_size, N).
+        tensor_info (TensorInfo): Information about the tensor shape, complex flag, and dtype.
+
+    Returns:
+        tensor_batch (torch.Tensor): Tensor of shape (batch_size, *).
+    """
+    shape = tensor_info.shape
+    is_complex = tensor_info.is_complex
+    dtype = tensor_info.dtype
+    expected_size = torch.prod(torch.tensor(shape)).item()
+    if is_complex:
+        total_expected_size = expected_size * 2
+        if vector_batch.shape[1] != total_expected_size:
+            raise ValueError(
+                f"Each vector size {vector_batch.shape[1]} does not match expected size {total_expected_size} for shape {shape}."
+            )
+        batch_size = vector_batch.shape[0]
+        real_part = vector_batch[:, :expected_size].view((batch_size,) + shape)
+        imag_part = vector_batch[:, expected_size:].view((batch_size,) + shape)
+        tensor_batch = torch.complex(real_part, imag_part).to(dtype)
+    else:
+        if vector_batch.shape[1] != expected_size:
+            raise ValueError(
+                f"Each vector size {vector_batch.shape[1]} does not match expected size {expected_size} for shape {shape}."
+            )
+        tensor_batch = vector_batch.view((vector_batch.shape[0],) + shape).to(dtype)
+    return tensor_batch
+
+
+def batched_vector_model(X_vec_batch, W_vec_batch, X_info, W_shapes, model):
+    """
+    Applies the model to batches of inputs and parameters with shape validation.
+
+    Args:
+        X_vec_batch (torch.Tensor): Batch of flattened input vectors, shape (batch_size, N_x)
+        W_vec_batch (torch.Tensor): Batch of flattened parameter vectors, shape (batch_size, N_w)
+        X_info (TensorInfo): Information about the input tensor shape, complex flag, and dtype.
+        W_shapes (List[ParamInfo]): List of parameter info.
+        model (nn.Module): An instance of the model to use.
+
+    Returns:
+        y_vec_batch (torch.Tensor): Batch of flattened output vectors, shape (batch_size, N_y)
+        output_info (TensorInfo): Information about the output tensor shape, complex flag, and dtype.
+
+    Raises:
+        ValueError: If the vector sizes do not match the expected sizes.
+    """
+    batch_size_x = X_vec_batch.shape[0]
+    batch_size_w = W_vec_batch.shape[0]
+
+    # Determine the batch size to use
+    if batch_size_x == batch_size_w:
+        batch_size = batch_size_x
+    elif batch_size_x == 1 and batch_size_w > 1:
+        batch_size = batch_size_w
+        X_vec_batch = X_vec_batch.expand(batch_size, -1)
+    elif batch_size_w == 1 and batch_size_x > 1:
+        batch_size = batch_size_x
+        W_vec_batch = W_vec_batch.expand(batch_size, -1)
+    else:
+        raise ValueError(
+            f"Batch sizes of X_vec_batch ({batch_size_x}) and W_vec_batch ({batch_size_w}) are incompatible."
+        )
+
+    y_vec_list = []
+    output_info = None  # Will be set after the first pass
+
+    # Unflatten all parameter vectors in the batch
+    W_tensors_batch = unflatten_model_parameters_batch(W_vec_batch, W_shapes)
+
+    # Reuse the same model instance
+    for i in range(batch_size):
+        # Set the model parameters for this sample
+        W_tensors = W_tensors_batch[i]
+        set_model_parameters(model, W_tensors)
+
+        # Unflatten the input for this sample
+        x_vector = X_vec_batch[i]
+        X_i = unflatten_tensor_batch(
+            x_vector.unsqueeze(0), X_info
+        )  # Shape: (1, *X_info.shape)
+
+        # Apply the model
+        with torch.no_grad():  # Disable gradient computation if not needed
+            assert X_i.shape[0] == 1, "Batch size must be 1"
+            assert (
+                X_i.shape[1:] == X_info.shape
+            ), "Input shape does not match expected shape"
+            y_i = model(X_i)  # Shape: (1, *output_shape)
+
+        # Flatten the output and collect
+        y_i_vector, y_info = flatten_tensor_batch(y_i)
+        if output_info is None:
+            output_info = y_info
+        else:
+            if y_info != output_info:
+                raise ValueError(
+                    f"Output info {y_info} does not match expected info {output_info}."
+                )
+        y_vec_list.append(y_i_vector.squeeze(0))
+
+    # Stack the outputs
+    y_vec_batch = torch.stack(y_vec_list)
+    return y_vec_batch, output_info
+
+
+def get_model_structure(model):
+    model_structure = {}
+
+    for module_name, module in model.named_modules():
+        if module_name not in model_structure:
+            model_structure[module_name] = {}
+
+        for param_name, param in module.named_parameters(recurse=False):
+            model_structure[module_name][param_name] = {
+                "shape": list(param.shape),
+                "dtype": str(param.dtype),
+                "device": str(param.device),
+            }
+
+    return model_structure
+
+def flatten_gradient_variances(grad_variances, W_shapes):
+    """
+    Flattens the gradient variances into a single vector, consistent with the model parameters.
+
+    Args:
+        grad_variances (List[torch.Tensor]): List of gradient variance tensors.
+        W_shapes (List[ParamInfo]): List containing parameter info from flatten_model_parameters.
+
+    Returns:
+        grad_variance_vector (torch.Tensor): Flattened gradient variance vector of shape (N_w,).
+    """
+    grad_variance_vector = []
+    for var, info in zip(grad_variances, W_shapes):
+        if info.is_complex:
+            real_part = var.real.view(-1)
+            imag_part = var.imag.view(-1)
+            grad_variance_vector.append(torch.cat([real_part, imag_part]))
+        else:
+            grad_variance_vector.append(var.view(-1))
+    grad_variance_vector = torch.cat(grad_variance_vector)
+    return grad_variance_vector
+
+
+def normalize_model_dtypes(model, target_dtype):
+    """
+    Recursively normalize all tensor dtypes in a PyTorch module to match the target_dtype.
+    This function modifies the model in place.
+
+    Args:
+        model (torch.nn.Module): The model to normalize.
+        target_dtype (torch.dtype): The target dtype. Can be a float type (e.g., `torch.float64`).
+
+    Notes:
+        - If `target_dtype` is a real type (`torch.float32`, `torch.float64`), it maps complex dtypes
+          to their corresponding complex type (`torch.cfloat`, `torch.cdouble`).
+        - If `target_dtype` is a complex type, it maps real dtypes to their compatible real type.
+    """
+    if target_dtype not in [torch.float32, torch.float64, torch.cfloat, torch.cdouble]:
+        raise ValueError(
+            "Target dtype must be one of: torch.float32, torch.float64, torch.cfloat, torch.cdouble."
+        )
+
+    # Determine compatible real and complex types
+    if target_dtype in [torch.float32, torch.float64]:
+        compatible_real_dtype = target_dtype
+        compatible_complex_dtype = (
+            torch.cfloat if target_dtype == torch.float32 else torch.cdouble
+        )
+    else:
+        compatible_real_dtype = (
+            torch.float32 if target_dtype == torch.cfloat else torch.float64
+        )
+        compatible_complex_dtype = target_dtype
+
+    for name, param in model.named_parameters(recurse=False):
+        if param.is_floating_point():
+            param.data = param.data.to(compatible_real_dtype)
+        elif param.is_complex():
+            param.data = param.data.to(compatible_complex_dtype)
+        # No action needed for other types
+
+    for name, buffer in model.named_buffers(recurse=False):
+        if buffer.is_floating_point():
+            buffer.data = buffer.data.to(compatible_real_dtype)
+        elif buffer.is_complex():
+            buffer.data = buffer.data.to(compatible_complex_dtype)
+        # No action needed for other types
+
+    for child in model.children():
+        normalize_model_dtypes(child, target_dtype)

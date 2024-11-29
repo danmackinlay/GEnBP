@@ -9,7 +9,9 @@ import cloudpickle
 import warnings
 from pprint import pprint, pformat
 
-%run mp_026_factor_graph_sysid_advection_wrapped.py
+# %run mp_026_factor_graph_sysid_advection_wrapped.py
+from mp_026_factor_graph_sysid_advection_wrapped import *
+
 
 #%% sweep some params
 
@@ -50,7 +52,7 @@ base_kwargs = dict(
     FINAL_PLOTS=False,
     SAVE_FIGURES=False,
     return_fg=False,
-    # job_name="fg_advect_genbp_dev",
+    # job_name="adv_genbp_dev",
     q_ylim=(-3,6),
 )
 
@@ -85,14 +87,14 @@ def winnow_and_gather_job_results(jobs, param_list):
     failed_jobs = 0
 
     for job, params in zip(jobs, param_list):
-        job.wait()
-        if job.state in ('DONE', 'COMPLETED'):
+        try:
+            result = job.result()
             successful_params.append(params)
-            successful_results.append(job.result())
-        else:
+            successful_results.append(result)
+        except Exception as e:
             failed_jobs += 1
             failed_params.append(params)
-            warnings.warn("Job not completed")
+            warnings.warn(f"Job not completed successfully with parameters: {params} \n{e}")
             # print(job.stdout())
             print(job.stderr())
 
@@ -194,7 +196,7 @@ plt.scatter(
     mses[inliers],
     logliks[inliers], s=0.5)
 # label axes
-plt.xlabel('MSE')
+plt.xlabel('Mean-Squared Error')
 plt.ylabel('Log Likelihood')
 # lims chosen for this data set
 plt.xlim([0.0, 0.12])

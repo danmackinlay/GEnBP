@@ -4,8 +4,10 @@
 # %load_ext autoreload
 # %autoreload 2
 from src.jobs import *
-%run mp_030_factor_graph_sysid_ns2d_wrapped.py
-genbp_experiment_name = "fg_cfd_genbp_n_ens_thurs"
+# %run mp_030_factor_graph_sysid_ns2d_wrapped.py
+from mp_030_factor_graph_sysid_ns2d_wrapped import *
+
+genbp_experiment_name = "cfd_genbp_n_ens_iclr"
 sweep_param = 'n_ens'
 
 #%% sweep some params
@@ -47,7 +49,7 @@ base_kwargs = dict(
     FINAL_PLOTS=False,
     SAVE_FIGURES=False,
     return_fg=False,
-    # job_name="fg_cfd_genbp_dev",
+    # job_name="cfd_genbp_dev",
     q_ylim=(-1,1),
 )
 
@@ -67,7 +69,7 @@ x = np.linspace(16, 256, 16)
 # sweep_values = np.arange(16, 256, 16)
 sweep_values = x.astype(int)
 
-n_replicates = 80
+n_replicates = 40
 
 genbp_experiment = sweep_params(
     run_run,
@@ -98,7 +100,7 @@ y_keys = [
 titles = [
     'Execution Time',
     # 'Memory Usage',
-    'MSE',
+    'Mean-Squared Error',
     'Log Likelihood'
 ]
 title_positions = [
@@ -107,10 +109,15 @@ title_positions = [
     'top',
     'bottom'
 ]
-
+better_high_dict = {
+    'time': False,
+    'q_mse': False,
+    'q_loglik': True,
+}
 # Now we create a plot of the performance of each method.
 # We create several axes  to reuse to plot both experiments for time, memory, MSE and likelihood.
 from tueplots import bundles, figsizes
+import matplotlib as mpl
 n_plots = len(y_keys)
 mode = "row"
 plt.rcParams.update(bundles.iclr2024())
@@ -136,7 +143,7 @@ for i, ax in enumerate(axs):
     )
 
     # Add title inside the plot area
-    if title:
+    if mode=="col":
         vert_align = 'top' if title_position == 'top' else 'bottom'
         horiz_align = 'right'
         x_pos = 0.95
@@ -145,11 +152,29 @@ for i, ax in enumerate(axs):
             x_pos, y_pos, title,
             transform=ax.transAxes, fontsize=10, va=vert_align, ha=horiz_align,
             bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.5'))
+    else:
+        ax.set_title(title)
+
+    if y_key in (
+            "time",
+            # "q_mse"
+            ):
+        ax.set_yscale('log')
+        # ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: '{:.0e}'.format(y)))
+        ax.yaxis.set_major_formatter(
+            mpl.ticker.LogFormatterSciNotation(labelOnlyBase=True))
+        # ax.ticklabel_format(
+        #     style='scientific',
+        #     axis='y',
+        #     scilimits=(0,0)
+        # )
+    else:
+        ax.ticklabel_format(style='scientific', axis='y', scilimits=(-1,1))
 
 # plt.tight_layout()
 # save figure as PDF in FIG_DIR
 plt.savefig(
-    os.path.join(FIG_DIR, f'fg_cfd_n_{sweep_param}_sweep.pdf'), bbox_inches='tight')
+    os.path.join(FIG_DIR, f'cfd_{sweep_param}_sweep.pdf'), bbox_inches='tight')
 plt.show()
 
 # %%

@@ -8,7 +8,6 @@ from enum import Enum
 import numpy as np
 import torch
 from einops import rearrange, repeat
-from .random_fields import GaussianRF
 from .math_helpers import convert_1d_to_2d, convert_2d_to_1d
 
 """
@@ -19,10 +18,9 @@ This navier-stokes sim stores data as (batch, x, y,) i.e. batch first
 # f: forcing term
 #visc: viscosity (1/Re)
 # delta_t: internal time-step for solve (descrease if blow-up)
-# record_steps: number of in-time snapshots to record
+# interval: number of internal time-steps between observations
 def navier_stokes_2d_step(
-        w0, f, visc=1.0, delta_t=0.01, record_steps=16, interval=1, v_noise_power=0.):
-    device = w0.device
+        w0, f, visc=1.0, delta_t=0.01, interval=1, v_noise_power=0.):
 
     # Grid size - must be power of 2
     N = w0.shape[-1]
@@ -30,9 +28,6 @@ def navier_stokes_2d_step(
 
     # Maximum frequency
     k_max = math.floor(N / 2)
-
-    # Number of steps to final time
-    steps = record_steps * interval
 
     # Initial vorticity to Fourier space
     w_h = torch.fft.fftn(w0, dim=[-2, -1], norm='backward')
@@ -97,8 +92,9 @@ def navier_stokes_2d_step(
         w_y = torch.fft.ifftn(w_y, dim=[-2, -1], norm='backward').real
 
         # Non-linear term (u.grad(w)): compute in physical space then back to Fourier space
-        F_h = torch.fft.fftn(q * w_x + v * w_y,
-                             dim=[-2, -1], norm='backward')
+        F_h = torch.fft.fftn(
+            q * w_x + v * w_y,
+            dim=[-2, -1], norm='backward')
 
         # Dealias
         F_h *= dealias
@@ -120,7 +116,6 @@ def navier_stokes_2d_step(
         )
         w_h = num / (1.0 + factor)
 
-
     w = torch.fft.ifftn(
         w_h, dim=[-2, -1], norm='backward').real
     if w.isnan().any().item():
@@ -128,16 +123,18 @@ def navier_stokes_2d_step(
     return w
 
 
-def navier_stokes_2d_step_vector_form(w0, f, visc=1.0, delta_t=0.01, record_steps=16, interval=1, v_noise_power=0.):
-    original_shape = w0.shape
-    grid_size = int(original_shape[-1] ** 0.5)  # Assuming w0 is a square 2D array or batch of square 2D arrays
+def navier_stokes_2d_step_vector_form(w0, f, visc=1.0, delta_t=0.01, interval=1, v_noise_power=0.):
+    # original_shape = w0.shape
+    # grid_size = int(original_shape[-1] ** 0.5)  # Assuming w0 is a square 2D array or batch of square 2D arrays
 
+    assert len(w0.shape) == 2, 'w0 must be a batch of vectors'
+    assert len(f.shape) == 2, 'f must be a batch of vectors'
     # Convert w0 from 1D to 2D
     w0_reshaped = convert_1d_to_2d(w0)
     f_reshaped = convert_1d_to_2d(f)
 
     # Call the original function
-    result = navier_stokes_2d_step(w0_reshaped, f_reshaped, visc, delta_t, record_steps, interval, v_noise_power)
+    result = navier_stokes_2d_step(w0_reshaped, f_reshaped, visc, delta_t, interval, v_noise_power)
 
     # Reshape the result back to its original shape
     return convert_2d_to_1d(result)

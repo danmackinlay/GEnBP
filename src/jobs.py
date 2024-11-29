@@ -1,6 +1,5 @@
 
 import time
-from memory_profiler import memory_usage
 from collections import defaultdict
 from pprint import pprint
 import warnings
@@ -56,10 +55,9 @@ def run_trial(fn, trial_params, n_replicates, executor, batch=False):
 def reduce_trial_jobs(jobs, reducer):
     results = []
     for job in jobs:
-        job.wait()
-        if job.state in ('DONE', 'COMPLETED'):
+        try:
             results.append(job.result())
-        else:
+        except Exception as e:
             warnings.warn("Job not completed")
             print(job.stdout())
             print(job.stderr())
@@ -119,14 +117,14 @@ def gather_job_results(
     failed_jobs = 0
 
     for job, params in zip(jobs, param_list):
-        job.wait()
-        if job.state in ('DONE', 'COMPLETED'):
+        try:
+            result = job.result()
             successful_params.append(params)
-            successful_results.append(job.result())
-        else:
+            successful_results.append(result)
+        except Exception as e:
             failed_jobs += 1
             failed_params.append(params)
-            warnings.warn("Job not completed")
+            warnings.warn(f"Job not completed successfully with parameters: {params} \n{e}")
             print(job.stdout())
             print(job.stderr())
 
@@ -192,6 +190,7 @@ def save_experiment(experiment, experiment_name, log_dir):
     file_path = os.path.join(log_dir, experiment_name + ".experiment.pkl.bz2")
     with bz2.open(file_path, "wb") as f:
         return cloudpickle.dump(experiment, f)
+    return file_path
 
 
 def load_experiment(experiment_name, log_dir):
@@ -206,7 +205,8 @@ def save_artefact(artefact, artefact_name, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     file_path = os.path.join(output_dir, artefact_name + ".pkl.bz2")
     with bz2.open(file_path, "wb") as f:
-        return cloudpickle.dump(artefact, f)
+        cloudpickle.dump(artefact, f)
+    return file_path
 
 
 def load_artefact(artefact_name, output_dir):
@@ -218,17 +218,14 @@ def load_artefact(artefact_name, output_dir):
 
 # Process trial
 def reduce_trial_jobs(jobs, fn):
-    for job in jobs:
-        job.wait()
-
     # Collect results
     results = []
     for job in jobs:
-        if job.state in ('DONE', 'COMPLETED'):
-            # pprint(job.result())
-            results.append(job.result())
-        else:
-            warnings.warn("job not completed")
+        try:
+            result = job.result()
+            results.append(result)
+        except Exception as e:
+            warnings.warn(f"job not completed successfully: {e}")
             print(job.stdout())
             print(job.stderr())
 
@@ -258,28 +255,30 @@ def prepare_data_for_plotting(experiment_results, sweep_param):
 
 
 def plot_experiment_results(
-        ax, sweep_param, y_key, experiment_results, label,
-        **kwargs):
+        ax, sweep_param, y_key, experiment_results, label, x_offset=0, marker="_", **kwargs
+    ):
     plot_data = prepare_data_for_plotting(experiment_results, sweep_param)
 
     if y_key not in plot_data:
-        raise ValueError(f"y_key '{y_key}' not found in experiment results.")
+        raise ValueError(f"y_key '{y_key}' not found in experiment results. found keys: {list(plot_data.keys())}")
 
     # Extract parameter values, medians, and lower/upper percentiles
-    param_values, lower_percentiles = zip(*plot_data[y_key][0])  # 0.025 nanpercentile
-    _, medians = zip(*plot_data[y_key][1])  # 0.5 nanpercentile (median)
-    _, upper_percentiles = zip(*plot_data[y_key][2])  # 0.975 nanpercentile
+    param_values, lower_percentiles = zip(*plot_data[y_key][0])  # 0.025 percentile
+    _, medians = zip(*plot_data[y_key][1])  # 0.5 percentile (median)
+    _, upper_percentiles = zip(*plot_data[y_key][2])  # 0.975 percentile
 
     # Calculate error for error bars (distance from median)
     lower_errors = np.array(medians) - np.array(lower_percentiles)
     upper_errors = np.array(upper_percentiles) - np.array(medians)
     error = [lower_errors, upper_errors]
 
-    # Plotting
+    # Apply x offset
+    adjusted_param_values = np.array(param_values) + x_offset
+
+    # Plotting with specified marker and any additional kwargs
     ax.errorbar(
-        param_values, medians, yerr=error, fmt='_',
-        # capsize=5,
-        label=label, **kwargs)
+        adjusted_param_values, medians, yerr=error, fmt=marker, label=label, **kwargs
+    )
 
     return ax
 
@@ -292,7 +291,6 @@ def example_calc(a=1, b=2, seed=3):
 
     # Start timing and memory measurement
     start_time = time.time()
-    peak_memory_start = memory_usage(max_usage=True)
 
     # The part of the code you want to measure
     # Example calculation (replace with your actual code)
@@ -300,16 +298,13 @@ def example_calc(a=1, b=2, seed=3):
 
     # End timing and memory measurement
     end_time = time.time()
-    peak_memory_end = memory_usage(max_usage=True)
 
     # Calculate elapsed time and peak memory usage
     elapsed_time = end_time - start_time
-    peak_memory_usage = peak_memory_end - peak_memory_start
 
     return {
         'result': result,
         'time': elapsed_time,
-        'memory': peak_memory_usage
     }
 
 

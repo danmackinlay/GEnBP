@@ -1,9 +1,10 @@
 import warnings
 import torch
+import gc
 
-from ._base import VERY_BIG_RANK, _factor_name, Converged
+from ._base import VERY_BIG_RANK, _factor_name, Converged, var_dims_d, var_slices_d, slice_by_var_d
 from .var_node import VarNode
-from .factor_node import FactorNode
+from .factor_node import FactorNode, EqualityNode
 
 
 class FactorGraph:
@@ -55,9 +56,19 @@ class FactorGraph:
                 sim_fn, input_names, output_names)
             parent_nodes = {name: var_nodes[name] for name in input_names}
             child_nodes = {name: var_nodes[name] for name in output_names}
-            factor_node = FactorNode(
-                sim_fn, parent_nodes, child_nodes, name=factor_name,
-            )
+            if sim_fn is None or sim_fn == "identity":
+                factor_node = EqualityNode(
+                    None,
+                    parent_nodes=parent_nodes,
+                    child_nodes=child_nodes,
+                    name=factor_name,)
+            else:
+                factor_node = FactorNode(
+                    sim_fn,
+                    parent_nodes=parent_nodes,
+                    child_nodes=child_nodes,
+                    name=factor_name,
+                )
             factor_nodes[factor_name] = factor_node
             # tell all the variable nodes about this factor node
             for name in input_names + output_names:
@@ -107,6 +118,7 @@ class FactorGraph:
         self._settings.setdefault("rtol", None)
         self._settings.setdefault("schedule", "all")
         self._settings.setdefault("DEBUG_MODE", False)
+        self._settings.setdefault("GC", True)  # aggressive garbage collection
 
         for factor_node in self.factor_nodes.values():
             factor_node.set_fg(self)
@@ -475,7 +487,7 @@ class FactorGraph:
         self._callback_log = []
         self._ens_energy = 1e8
         self._belief_energy = self._ens_energy
-        cvg_tol = self.get_setting("cvg_tol")
+        cvg_tol = torch.as_tensor(self.get_setting("cvg_tol"))
         while self._n_mp_steps < self.get_setting("max_steps"):
             if self._n_mp_steps == 0:
                 # "first" step; just update empirical potentials
@@ -487,9 +499,9 @@ class FactorGraph:
                 self._ens_energy = self.get_ens_energy()
                 self._ens_energies.append(self._ens_energy)
                 ens_energy_delta = self._ens_energy - self._prev_ens_energy
-                # if energy didn't decrease by much, or even increased, we need to stop
+                # Energy is not monotonic, so we count small deltas as convergence
                 if (
-                        ens_energy_delta > cvg_tol
+                        torch.abs(ens_energy_delta) < torch.abs(cvg_tol)
                     ):
                     print(f"simulation converged with energy {self._ens_energy} since delta {ens_energy_delta}>={cvg_tol}")
                     if ens_energy_delta > 0.0:
@@ -514,6 +526,7 @@ class FactorGraph:
 
             warnings.warn(f"converged conforming after {self._steps_since_relin} steps")
             self._update_sample_from_belief()
+            if self.get_setting("GC"):  gc.collect()
 
         return self._ens_energies
 
@@ -525,6 +538,8 @@ class FactorGraph:
         Currently only one ancestral node is supported. If we want to infer
         multiple latents *jointly*, one way is to concatenate them into a
         single var.
+
+        Currently they are conformed *independently*, which may destroy some correlation
 
         TODO: This is a bug. conforming should happen across ancestral
         *factors*, which would be consistent across multiple vars jointly.
@@ -621,38 +636,3 @@ class FactorGraph:
                 rtol=self.get_setting("rtol"),
                 retain_all=self.get_setting("belief_retain_all"),
             )
-
-
-def var_dims_d(var_nodes):
-    """
-    return the dimensions of each implicated var node
-    """
-    var_dims = {}
-    for k, v in var_nodes.items():
-        var_dims[k] = v.get_dim()
-    return var_dims
-
-
-def var_slices_d(var_nodes):
-    """
-    return slices for each var node
-    """
-    var_slices = {}
-    offset = 0
-    for k, v in var_nodes.items():
-        next_offset = offset + v.get_dim()
-        var_slices[k] = slice(offset, next_offset)
-        offset = next_offset
-    return var_slices
-
-
-def slice_by_var_d(var_nodes, mat):
-    """
-    Utility which returns a dict of views of a large matrix with slices
-    corresponding to the var nodes.
-    This should turn a matrix into a dict of matrices.
-    """
-    slices = var_slices_d(var_nodes)
-    return {
-        k: mat[slices[k], :] for k in slices
-    }

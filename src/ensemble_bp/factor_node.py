@@ -4,7 +4,6 @@ import torch
 import numpy as np
 
 from ..hermitian_matrices import DiagonalPlusLowRank
-from ..torch_formatting import ensemble_packery
 from ..gaussian_statistics import mean_dev_from_ens, \
     moments_from_ens, \
     moments_from_canonical, \
@@ -12,6 +11,22 @@ from ..gaussian_statistics import mean_dev_from_ens, \
     fake_ens_from_moments, fake_ens_from_canonical
 from ._base import VERY_BIG_RANK, _factor_name, Converged
 from .condition import pathwise_condition
+from ._base import (
+    VERY_BIG_RANK,
+    _factor_name,
+    Converged,
+    var_dims_d,
+    var_slices_d,
+    slice_by_var_d,
+)
+
+
+class EqualityNode:
+    """
+    A factor node in the factor graph.
+
+    No parents in this case, we just impose a constraint on all nodes symmetrically.
+    """
 
 
 class FactorNode:
@@ -29,12 +44,14 @@ class FactorNode:
             parent_nodes={},
             child_nodes={},
             name="",
+            blocked=(),  # blocked vars, which won't RECEIVE messages
             fg=None):
         self.sim_fn = sim_fn
         self.parent_nodes = {}
         self.child_nodes = {}
         # all nodes we know about
         self.var_nodes = {}
+        self.blocked = ()
         self.inbox = {}
         self.name = name
         self.ens_potential = None
@@ -45,12 +62,15 @@ class FactorNode:
         for k, v in child_nodes.items():
             self.add_child_node(k, v)
 
+        self.blocked = blocked
+
     def __repr__(self):
         return (
             f"{type(self).__name__}("
             f"{_factor_name(self.sim_fn, self.parent_nodes, self.child_nodes)},"
             f"{self.parent_nodes.keys()},"
             f"{self.child_nodes.keys()},"
+            f"{self.blocked},"
             ")"
         )
 
@@ -186,7 +206,7 @@ class FactorNode:
                 plt.show()
             ## END DEBUG
         ## DEBUG
-        # # None of my graphs have that many incoming obs for measurement nodes
+        # # None of the graphs have that many incoming obs for measurement nodes
         # # So let's ignore this plot for now;
         # # it will usually duplicate the previous one in that case.
         # if DEBUG_MODE:
@@ -201,7 +221,7 @@ class FactorNode:
         """
         Make potential consistent with the current ensemble.
         Be careful *when* this is done.
-        We conditional all factors after ancestral sampling, and re-do observed factors after conditioning.
+        We condition all factors after ancestral sampling, and re-do observed factors after conditioning.
         """
         ## DEBUG
         DEBUG_MODE = self.is_debug()
@@ -635,6 +655,7 @@ class FactorNode:
         """
         outbox = {}
         keys = self.get_var_nodes_d(include_observed=False).keys()
+        keys = list(set(keys) - set(self.blocked))
         for k in keys:
             # print("_f->v", k)
             outbox[k] = self._factor_to_var_message(
@@ -934,3 +955,132 @@ class FactorNode:
         assert message[0].shape[0] == target_D
 
         return message
+
+
+class EqualityNode(FactorNode):
+    """
+    Factor node which doesn't actually have an ensemble.
+    All children have tiled copies of the same ensemble as factor *prior*
+    but we don't overwrite their ensembles.
+    instead, we maintain a separate ensemble for the factor node itself.
+    """
+
+    def __init__(
+        self,
+        sim_fn=None,
+        **kwargs
+    ):
+        if sim_fn is not None:
+            raise ValueError("EqualityNode cannot have a sim_fn")
+        super().__init__(sim_fn=None, **kwargs)
+        self.parent_ensembles = {}
+        self.child_ensembles = {}
+
+    def is_debug(self):
+        return getattr(self.fg, "DEBUG_MODE", False)
+
+    # ensemble stuff
+    def ancestral_sample(self):
+        """
+        Sample the prior ensemble for this factor node,
+        by calculating the prior ensemble for the (single) parent node,
+        and asserting it is the same for each child node.
+        """
+        parent_samples = [p.get_ens_or_obs() for p in self.parent_nodes.values()]
+        assert len(set(parent_samples)) == 1
+        parent_sample = parent_samples[0]
+        self.parent_ensembles = {k: parent_sample for k in self.parent_nodes}
+        for k in self.child_nodes:
+            self.child_ensembles[k] = parent_sample
+
+    def get_observations_d(self):
+        return {}
+
+    def get_observed_nodes_d(self):
+        """
+        Which nodes are observed
+        """
+        return {}
+
+    def condition_on_observations(self):
+        """
+        No conditioning an equality factor.
+        """
+        pass
+
+        ## DEBUG
+
+    def get_ens_d(self, include_observed=False, observed_override=False):
+        """
+        return the current ensemble as a dict of matrices corresponding
+        to var ensembles.
+        """
+        ens_d = self.parent_ensembles.copy()
+        ens_d.update(self.child_ensembles)
+        return ens_d
+
+    def get_ens(self, include_observed=False, observed_override=False):
+        """
+        return the current ensemble matrix
+        """
+        return torch.cat(
+            [
+                v
+                for v in self.get_ens_d(
+                ).values()
+            ],
+            dim=1,
+        )
+
+    def get_ens_or_obs_d(self):
+        """
+        return the current ensemble as a dict of matrices corresponding
+        to var ensembles.
+
+        TODO: optionally fallback to a factor-local ensemble.
+        """
+        return self.get_ens_d()
+
+    def get_ens_d_from_vars(self, include_observed=False, observed_override=False):
+        """
+        return the current ensemble as a dict of matrices corresponding
+        to var ensembles.
+        """
+        raise ValueError("EqualityNode does not access var node ensembless")
+
+    def get_ens_from_vars(self, include_observed=False, observed_override=False):
+        """
+        return the current ensemble matrix
+        """
+        return torch.cat(
+            [
+                v
+                for v in self.get_ens_d(
+                    include_observed=include_observed,
+                    observed_override=observed_override,
+                ).values()
+            ],
+            dim=1,
+        )
+
+    def get_ens_or_obs_d_from_vars(self):
+        """
+        return the current ensemble as a dict of matrices corresponding
+        to var ensembles.
+        """
+        raise ValueError("EqualityNode does not access var node ensembles")
+
+    def is_observed(self):
+        """
+        Is this factor node observed?
+        """
+        return False
+
+    def _factor_to_var_message(self, target_var_key, max_rank=None, **bparams):
+        """
+        Create one factor-to-var message from the _other_ var nodes' messages.
+        Messages are dicts of (e, prec) pairs.
+        """
+        return self._factor_to_var_message_full(
+            target_var_key, max_rank=max_rank, **bparams
+        )

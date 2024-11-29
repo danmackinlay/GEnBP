@@ -29,9 +29,9 @@ base_kwargs = dict(
     shift=10,
     n_timesteps=10,
     ## inference params
-    method='genbp',
+    method=method,
     n_ens=64,
-    # damping=0.25,   # da mping
+    # damping=0.25,   # damping
     damping=0.0,  # no damping
     # gamma2=0.1,
     hard_damping=True,
@@ -56,8 +56,8 @@ base_kwargs = dict(
     FINAL_PLOTS=True,
     SAVE_FIGURES=True,
     # return_fg=True,
-    forney_mode=True,
-    job_name="fg_advect_genbp_forney_sanity",
+    forney_mode=(method=='gbp'),
+    job_name=f"adv_{method}_sanity",
     q_ylim=(-2,8),
     lw=0.2,
     alpha_scale=2.0,
@@ -73,13 +73,17 @@ base_kwargs = dict(
 # )
 # j = executor.submit(run_run, **base_kwargs, seed=1)
 # result = j.result()
-gbp_lik_result = run_run(**{**base_kwargs, **GBP_BEST_LOGLIK, 'job_name': "fg_advect_gbp_lik_sanity"}, seed=75)
-pprint(gbp_lik_result)
-genbp_lik_result = run_run(**{**base_kwargs, **GENBP_BEST_LOGLIK, 'job_name': "fg_advect_genbp_lik_sanity"}, seed=75)
-pprint(genbp_lik_result)
-gbp_mse_result = run_run(**{**base_kwargs, **GBP_BEST_MSE, 'job_name': "fg_advect_gbp_mse_sanity"}, seed=75)
-pprint(gbp_mse_result)
-genbp_mse_result = run_run(**{**base_kwargs, **GENBP_BEST_MSE, 'job_name': "fg_advect_genbp_mse_sanity"}, seed=75)
-pprint(genbp_mse_result)
+
+# laplace_lik_result = run_run(**{**base_kwargs, **LAPLACE_BEST_LOGLIK, 'job_name': "adv_laplace_lik_sanity"}, seed=75)
+# pprint(laplace_lik_result)
+
+# gbp_lik_result = run_run(**{**base_kwargs, **GBP_BEST_LOGLIK, 'job_name': "adv_gbp_lik_sanity"}, seed=75)
+# pprint(gbp_lik_result)
+# genbp_lik_result = run_run(**{**base_kwargs, **GENBP_BEST_LOGLIK, 'job_name': "adv_genbp_lik_sanity"}, seed=75)
+# pprint(genbp_lik_result)
+# gbp_mse_result = run_run(**{**base_kwargs, **GBP_BEST_MSE, 'job_name': "adv_gbp_mse_sanity"}, seed=75)
+# pprint(gbp_mse_result)
+# genbp_mse_result = run_run(**{**base_kwargs, **GENBP_BEST_MSE, 'job_name': "adv_genbp_mse_sanity"}, seed=75)
+# pprint(genbp_mse_result)
 
 # %%

@@ -234,10 +234,10 @@ class VarNode:
         Alternatively, if we need the obs to be cast to ensemble, try
         `get_ens` with `observed_override=True`.
         """
-        if self.is_observed():
-            return self.observation
-        else:
-            return self.ens
+        res = self.observation if self.is_observed() else self.ens
+        if res is None:
+            raise ValueError(f"No ensemble for {self.name}")
+        return res
 
     # def compute_ens_moments(self):
     #     """
@@ -280,7 +280,7 @@ class VarNode:
         messages from the inbox.
 
         This calculation is notionally evanescent;
-        we do not use it in the message passing calculation and it do not
+        we do not use it in the message passing calculation and it does not
         (should not) change anything about what is propagated.
         But we cache it here for convergence diagnosis and model evaluation.
 

@@ -1,7 +1,6 @@
 """ A do-over of jobs.py to be more resumable and robust
 """
 import time
-from memory_profiler import memory_usage
 from collections import defaultdict
 from pprint import pprint
 import warnings
@@ -89,6 +88,7 @@ def save_artefact(artefact, file_path):
     # Save the artefact to the specified file path
     with bz2.open(file_path, "wb") as f:
         cloudpickle.dump(artefact, f)
+    return file_path
 
 
 def load_artefact(file_path):
@@ -135,7 +135,6 @@ def example_calc(a=1, b=2, seed=3):
 
     # Start timing and memory measurement
     start_time = time.time()
-    peak_memory_start = memory_usage(max_usage=True)
 
     # The part of the code you want to measure
     # Example calculation (replace with your actual code)
@@ -143,16 +142,13 @@ def example_calc(a=1, b=2, seed=3):
 
     # End timing and memory measurement
     end_time = time.time()
-    peak_memory_end = memory_usage(max_usage=True)
 
     # Calculate elapsed time and peak memory usage
     elapsed_time = end_time - start_time
-    peak_memory_usage = peak_memory_end - peak_memory_start
 
     return {
         'result': result,
         'time': elapsed_time,
-        'memory': peak_memory_usage
     }
 
 def run_example_sweep():

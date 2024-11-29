@@ -18,8 +18,11 @@ The target is Q, X0 is known.
 """
 # %load_ext autoreload
 # %autoreload 2
-%run mp_026_factor_graph_sysid_advection_wrapped.py
-genbp_experiment_name = "fg_advect_genbp_n_ens_sweep"
+# %run mp_026_factor_graph_sysid_advection_wrapped.py
+from mp_026_factor_graph_sysid_advection_wrapped import *
+
+# genbp_experiment_name = "adv_genbp_n_ens_sweep"
+genbp_experiment_name = "adv_genbp_n_ens_iclr"
 sweep_param = 'n_ens'
 
 
@@ -60,7 +63,7 @@ base_kwargs = dict(
     FINAL_PLOTS=False,
     SAVE_FIGURES=False,
     return_fg=False,
-    # job_name="fg_advect_genbp_dev",
+    # job_name="adv_genbp_dev",
     q_ylim=(-3,6),
 )
 
@@ -80,7 +83,7 @@ x = np.linspace(16, 512, 16)
 sweep_values = np.arange(16, 256, 16)
 sweep_values = x.astype(int)
 
-n_replicates = 80
+n_replicates = 40
 
 
 genbp_experiment = sweep_params(
@@ -111,7 +114,7 @@ y_keys = [
 titles = [
     'Execution Time',
     # 'Memory Usage',
-    'MSE',
+    'Mean-Squared Error',
     'Log Likelihood'
 ]
 title_positions = [
@@ -156,7 +159,7 @@ for i, ax in enumerate(axs):
 # plt.tight_layout()
 # save figure as PDF in FIG_DIR
 plt.savefig(
-    os.path.join(FIG_DIR, f'fg_advect_n_ens_sweep.pdf'), bbox_inches='tight')
+    os.path.join(FIG_DIR, f'adv_n_ens_sweep.pdf'), bbox_inches='tight')
 plt.show()
 
 # %%

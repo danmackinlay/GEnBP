@@ -17,7 +17,7 @@ There are several data structure of note:
    and prec is a precision operator, presumably low-rank or what are we even
    doing?
 
-gamma2 controls the implied noise when calculating ensemble statistics, which propagates through the network as diagonal uncertainty,
+gamma2 controls the implied noise when calculating ensemble statistics, which propagates through the network as diagonal uncertainty.
 
 sigma2 controls the weighting applied to observations when calculating observation updates.
 

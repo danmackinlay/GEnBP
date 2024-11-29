@@ -8,9 +8,9 @@ from mp_030_factor_graph_sysid_ns2d_wrapped import *
 
 # Choose the inference method
 # method = 'genbp'
-# method = 'gbp'
+method = 'gbp'
 # method = 'laplace'
-method = 'langevin'  # Set method to 'langevin' to use the Langevin sampler
+# method = 'langevin'  # Set method to 'langevin' to use the Langevin sampler
 
 # %% Sanity check
 base_kwargs = dict(
@@ -46,9 +46,10 @@ base_kwargs = dict(
     DEBUG_MODE=True,
     DEBUG_PLOTS=True,
     FINAL_PLOTS=True,
-    SAVE_FIGURES=False,
+    SAVE_FIGURES=True,
+    SHOW_FIGURES=True,
     return_fg=True,
-    forney_mode=True,
+    forney_mode=(method=='gbp'),
     q_ylim=(-1, 1),
     lw=0.2,
     # alpha_scale=2.0,
@@ -68,13 +69,13 @@ base_kwargs = dict(
 #     slurm_account=os.getenv('SLURM_ACCOUNT'),
 #     slurm_mem=8*1024,
 # )
-# j = executor.submit(run_run, **base_kwargs, job_name=f"fg_cfd_{method}_forney_sanity", seed=1)
+# j = executor.submit(run_run, **base_kwargs, job_name=f"cfd_{method}_forney_sanity", seed=1)
 # result = j.result()
 
 # Direct invocation of the run_run function
 result = run_run(
     **base_kwargs,
-    job_name=f"fg_cfd_{method}_forney_sanity",
+    job_name=f"cfd_{method}_forney_sanity",
     seed=74
 )
 

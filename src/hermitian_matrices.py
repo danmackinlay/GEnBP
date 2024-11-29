@@ -632,12 +632,19 @@ def reduced_factor_rank(lr_factor, rank, atol=0.0, rtol=None):
     TODO: switch to the (?) faster
     https://pytorch.org/docs/stable/generated/torch.svd_lowrank.html
     """
-    U, S, _ = torch.linalg.svd(lr_factor, full_matrices=False)
-    U = U[:, :rank]
-    S = S[:rank]
+    try:
+        # Attempt full SVD
+        U, S, _ = torch.linalg.svd(lr_factor, full_matrices=False)
+        U = U[:, :rank]
+        S = S[:rank]
+    except RuntimeError as e:
+        warnings.warn("Full SVD failed, falling back to torch.svd_lowrank.")
+        # Use low-rank SVD as a fallback
+        U, S, _ = torch.svd_lowrank(lr_factor, q=rank)
+
     atol, rtol = atol_rtol(
         lr_factor.dtype, lr_factor.shape[0], atol=atol, rtol=rtol)
-    if atol>0.0 or rtol>0.0:
+    if atol > 0.0 or rtol > 0.0:
         s1 = S.abs().max()
         nonzeroish = S.abs() > s1 * rtol + atol
         U = U[:, nonzeroish]

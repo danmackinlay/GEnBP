@@ -3,11 +3,18 @@
 """
 # %load_ext autoreload
 # %autoreload 2
-%run mp_030_factor_graph_sysid_ns2d_wrapped.py
+# %run mp_030_factor_graph_sysid_ns2d_wrapped.py
+from mp_030_factor_graph_sysid_ns2d_wrapped import *
 
 from src import jobs2
 from src.jobs import *
-exp_prefix = "fg_cfd_dev"
+import submitit
+from pprint import pprint
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+
+exp_prefix = "cfd_d_iclr"
 sweep_param = 'd'
 
 #%% sweep some params
@@ -41,20 +48,20 @@ base_kwargs = dict(
     conform_retain_all=True,
     conform_r_eigen_floor=1e-4,
     conform_randomize=True,
-    forney_mode=True,
+    forney_mode=(method=='gbp'),
     ## diagnostics
     DEBUG_MODE=False,
     DEBUG_PLOTS=False,
-    FINAL_PLOTS=False,
+    FINAL_PLOTS=True,
     SAVE_FIGURES=False,
     return_fg=False,
-    # job_name="fg_cfd_genbp_dev",
+    # job_name="cfd_genbp_dev",
     # langevin parameters
     langevin_step_size=0.001,
     langevin_num_samples=5000,
     langevin_burn_in=1000,
     langevin_thinning=10,
-    q_ylim=(-3,6),
+    # q_ylim=(-3,6),
 )
 
 
@@ -98,7 +105,6 @@ for method in [
         experiment_name=experiment_name,
         batch=True
     )
-    # Use helper functions to construct the file path and save the job info
     file_path = jobs2.construct_intermediate_path(f"{experiment_name}_jobinfo")
     jobs2.save_artefact(job_info, file_path)
 
@@ -136,15 +142,15 @@ print(f"langevin_jobinfo_path={langevin_jobinfo_path!r}")
 #%% resume experiments
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'
 genbp_experiment_name=f'{exp_prefix}_genbp_{sweep_param}'
-laplace_experiment_name=f'{exp_prefix}_laplace_{sweep_param}'
+# laplace_experiment_name=f'{exp_prefix}_laplace_{sweep_param}'
 langevin_experiment_name=f'{exp_prefix}_langevin_{sweep_param}'
 gbp_jobinfo_path=f'_logs/{exp_prefix}_gbp_{sweep_param}_jobinfo.pkl.bz2'
 genbp_jobinfo_path=f'_logs/{exp_prefix}_genbp_{sweep_param}_jobinfo.pkl.bz2'
-laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
+# laplace_jobinfo_path=f'_logs/{exp_prefix}_laplace_{sweep_param}_jobinfo.pkl.bz2'
 langevin_jobinfo_path=f'_logs/{exp_prefix}_langevin_{sweep_param}_jobinfo.pkl.bz2'
 gbp_experiment = jobs2.load_artefact(gbp_jobinfo_path)
 genbp_experiment = jobs2.load_artefact(genbp_jobinfo_path)
-laplace_experiment = jobs2.load_artefact(laplace_jobinfo_path)
+# laplace_experiment = jobs2.load_artefact(laplace_jobinfo_path)
 langevin_experiment = jobs2.load_artefact(langevin_jobinfo_path)
 
 #%%
@@ -181,7 +187,8 @@ jobs2.save_artefact(langevin_experiment_results, jobs2.construct_output_path(f"{
 
 # %%
 gbp_experiment_name=f'{exp_prefix}_gbp_{sweep_param}'
-genbp_experiment_name=f'{exp_prefix}_genbp_{sweep_param}'
+genbp_experiment_name = f"{exp_prefix}_genbp_{sweep_param}"
+langevin_experiment_name = f"{exp_prefix}_langevin_{sweep_param}"
 # laplace_experiment_name=f'{exp_prefix}_laplace_{sweep_param}'
 gbp_jobinfo_path=f'_logs/{exp_prefix}_gbp_{sweep_param}_jobinfo.pkl.bz2'
 genbp_jobinfo_path=f'_logs/{exp_prefix}_genbp_{sweep_param}_jobinfo.pkl.bz2'
@@ -201,7 +208,7 @@ y_keys = [
 titles = [
     'Execution Time (s)',
     # 'Memory Usage',
-    r'MSE',
+    r'Mean-Squared Error',
     r'Log Likelihood'
 ]
 
@@ -211,10 +218,10 @@ better_high_dict = {
     'q_loglik': True,
 }
 
-mode = "col"
+mode = "row"
 
 # Now we create a plot of the performance of each method.
-# We create several axes  to reuse to plot both experiments for time, memory, MSE and likelihood.
+# We create several axes to reuse to plot both experiments for time, memory, MSE, and likelihood.
 from tueplots import bundles, figsizes
 n_plots = len(y_keys)
 
@@ -236,23 +243,25 @@ for i, ax in enumerate(axs):
     better_high = better_high_dict[y_key]
     # x axis should be log scale
     ax.set_xscale('log')
+    # ax.set_yscale('log')  # Uncomment if you want the y-axis to be log scale
+
+    # Plotting GaBP results
     gbp_ds = []
     gbp_vals = []
-
     for d in gbp_experiment_results.keys():
         d2 = d**2
         gbp_ds.append(d2)
         quantiles = np.nanpercentile(gbp_experiment_results[d][y_key],
-            [0, 25, 50, 75, 100])
-        if y_key =='q_loglik':
+                                     [0, 25, 50, 75, 100])
+        if y_key == 'q_loglik':
             quantiles /= d2
         gbp_vals.append(quantiles)
     gbp_ds = np.array(gbp_ds)
     gbp_vals = np.array(gbp_vals)
     # plot quantiles of gbp
-    medians = gbp_vals[:,2]
-    lower = gbp_vals[:,1]
-    upper = gbp_vals[:,3]
+    medians = gbp_vals[:, 2]
+    lower = gbp_vals[:, 1]
+    upper = gbp_vals[:, 3]
     lower_err = medians - lower
     upper_err = upper - medians
     ax.errorbar(
@@ -267,17 +276,17 @@ for i, ax in enumerate(axs):
         d2 = d**2
         genbp_ds.append(d2)
         quantiles = np.nanpercentile(genbp_experiment_results[d][y_key],
-            [0, 25, 50, 75, 100])
-        if y_key =='q_loglik':
+                                     [0, 25, 50, 75, 100])
+        if y_key == 'q_loglik':
             quantiles /= d2
         genbp_vals.append(quantiles)
 
     genbp_ds = np.array(genbp_ds)
     genbp_vals = np.array(genbp_vals)
     # plot quantiles of genbp
-    medians = genbp_vals[:,2]
-    lower = genbp_vals[:,1]
-    upper = genbp_vals[:,3]
+    medians = genbp_vals[:, 2]
+    lower = genbp_vals[:, 1]
+    upper = genbp_vals[:, 3]
     lower_err = medians - lower
     upper_err = upper - medians
     ax.errorbar(
@@ -339,57 +348,60 @@ for i, ax in enumerate(axs):
     else:
         ax.ticklabel_format(style='scientific', axis='y', scilimits=(0,0))
 
-    if i==0:
+    if i == 0:
         ax.legend(fontsize=12)
 
-    if (i == len(axs) - 1):
+    if (i == len(axs) - 1) or mode == "row":
         ax.set_xlabel(r"$D_\mathscr{Q}$")
-    ax.set_ylabel(title)
+    if mode == "row":
+        ax.text(-0.0, -0.2, f"{chr(97+i)})", transform=ax.transAxes, ha='left', va='top')
 
     # Set the x-axis limits explicitly based on the genbp values
     ax.set_xlim(left=gbp_ds.min(), right=max_genbp_x)
     gbp_last_x = gbp_ds[-1]
 
     # Shade the area to the right of the last GaBP point
-    ax.axvspan(gbp_last_x, max_genbp_x, color='grey', alpha=0.5, label='GaBP OOM' )
+    oom_label = 'GaBP OOM' if mode == "col" else None
+    ax.axvspan(gbp_last_x, max_genbp_x, color='grey', alpha=0.5, label=oom_label)
 
-    # Set arrow properties
-    # arrow_color = 'green' if better_high else 'red'
-    arrow_color = 'black'
-    arrow_direction = '<-' if better_high else '->'
+    if mode == "col":
+        ax.set_ylabel(title)
+        # Set arrow properties
+        # arrow_color = 'green' if better_high else 'red'
+        arrow_color = 'black'
+        arrow_direction = '<-' if better_high else '->'
 
-    # Place the arrow outside the plot in the left margin
-    # `transform=ax.transAxes` means position is relative to the axes boundary, not the data
-    # Calculate starting and ending points for the arrow
-    base_y = 0.05
-    head_y = 0.15
-    # if better_high:
-    #     base_y, head_y = head_y, base_y
+        # Place the arrow outside the plot in the left margin
+        # `transform=ax.transAxes` means position is relative to the axes boundary, not the data
+        # Calculate starting and ending points for the arrow
+        base_y = 0.05
+        head_y = 0.15
 
-    # Place the arrow outside the plot in the left margin
-    # Align the low end of the arrow with the bottom axis of the plot
-    ax.annotate(
-        '',
-        xy=(-0.15, base_y),
-        xycoords='axes fraction',
-        xytext=(-0.15, base_y + head_y),
-        textcoords='axes fraction',
-        arrowprops=dict(
-            arrowstyle=f"{arrow_direction}, head_width=0.4, head_length=0.6",
-            facecolor=arrow_color))
+        # Place the arrow outside the plot in the left margin
+        # Align the low end of the arrow with the bottom axis of the plot
+        ax.annotate(
+            '',
+            xy=(-0.15, base_y),
+            xycoords='axes fraction',
+            xytext=(-0.15, base_y + head_y),
+            textcoords='axes fraction',
+            arrowprops=dict(
+                arrowstyle=f"{arrow_direction}, head_width=0.4, head_length=0.6",
+                facecolor=arrow_color))
+    else:
+        arrow = r'$\uparrow$' if better_high else r'$\downarrow$'
 
-
+        ax.set_title(title + " " + arrow, pad=15)
 
     if i == 0:  # Add the label only once to avoid duplicate legend entries
         ax.legend()
 
-
 # plt.tight_layout()
 # save figure as PDF in FIG_DIR
 plt.savefig(
-    os.path.join(FIG_DIR, f'fg_cfd_{sweep_param}_sweep.pdf'), bbox_inches='tight')
+    os.path.join(FIG_DIR, f'cfd_{sweep_param}_sweep.pdf'), bbox_inches='tight')
 plt.savefig(
-    os.path.join(FIG_DIR, f'fg_cfd_{sweep_param}_sweep.png'), bbox_inches='tight')
+    os.path.join(FIG_DIR, f'cfd_{sweep_param}_sweep.png'), bbox_inches='tight')
 plt.show()
 
 # %%

@@ -114,7 +114,12 @@ def meshify(X, Z):
     return mesh_x, mesh_y, mesh_Z
 
 
-def inbox_plot(node, truth=None, trunc=None, offset=0, step=1):
+def inbox_plot(
+        node,
+        truth=None,
+        trunc_start=0,
+        trunc_end=-1,
+        step=1):
     """
     plot my incoming messages
     """
@@ -134,10 +139,8 @@ def inbox_plot(node, truth=None, trunc=None, offset=0, step=1):
         m, var = moments_from_canonical(*belief)
         local_var = var.diag_t()
         sd = local_var.sqrt()
-        if trunc is None:
-            trunc = len(m)
-        m_trunc = m[offset:offset+trunc:step]
-        sd_trunc = sd[offset:offset+trunc:step]
+        m_trunc = m[trunc_start:trunc_end:step]
+        sd_trunc = sd[trunc_start:trunc_end:step]
         x = np.arange(len(m_trunc))
         c = colors[i]
         plt.step(
@@ -151,10 +154,8 @@ def inbox_plot(node, truth=None, trunc=None, offset=0, step=1):
     m, var = moments_from_canonical(*prod)
     local_var = var.diag_t()
     sd = local_var.sqrt()
-    if trunc is None:
-        trunc = len(m)
-    m_trunc = m[offset:offset+trunc:step]
-    sd_trunc = sd[offset:offset+trunc:step]
+    m_trunc = m[trunc_start:trunc_end:step]
+    sd_trunc = sd[trunc_start:trunc_end:step]
     x = np.arange(len(m_trunc))
     plt.step(
         x, m_trunc,
@@ -163,7 +164,7 @@ def inbox_plot(node, truth=None, trunc=None, offset=0, step=1):
         x, m_trunc - sd_trunc, m_trunc + sd_trunc,
         step='mid', color='black', alpha=0.5)
     if truth is not None:
-        truth_trunc = truth[offset:offset+trunc:step]
+        truth_trunc = truth[trunc_start:trunc_end:step]
         plt.step(
             x, truth_trunc,
             where='mid', color='black', alpha=0.5,
@@ -202,8 +203,20 @@ def node_ens_diag_plot(node, truth=None):
     return plt.gcf()
 
 
-def ens_plot(ens, ax=None, color='red', lw=0.1, alpha_scale=1.0, **kwargs):
+def ens_plot(
+        ens,
+        ax=None,
+        color='red',
+        lw=0.1,
+        alpha_scale=1.0,
+        trunc_start=0,
+        trunc_end=-1,
+        **kwargs):
     ens = asnumpy(ens)
+    #truncate the native dimension if we were supplied with a trunc_start and trunc_end param
+    print(f"ens shape {ens.shape} {trunc_start} {trunc_end}")
+    ens = ens[:, trunc_start:trunc_end]
+    print(f"ens shape2 {ens.shape}")
     full_D = ens.shape[1]
     # the alpha exponent here chosen by trial-and-error
     alpha = min(alpha_scale * ens.shape[0] ** -0.5, 1.0)
